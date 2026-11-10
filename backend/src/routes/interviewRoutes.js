@@ -1,0 +1,20 @@
+import { Router } from 'express';
+import * as c from '../controllers/interviewController.js';
+import * as f from '../controllers/interviewFlowController.js';
+import { protect } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { aiLimiter } from '../middleware/rateLimit.js';
+import { answerRules, completeRules, progressRules, startRules } from '../validators/interviewValidators.js';
+
+const r = Router();
+r.use(protect);
+r.get('/', c.listInterviews);
+r.post('/start', aiLimiter, validate(startRules), f.start);
+r.get('/:id', f.getWithState);
+r.get('/:id/report', f.getReport);
+r.post('/:id/answer', aiLimiter, validate(answerRules), f.answer);
+r.post('/:id/next-question', aiLimiter, validate(progressRules), f.nextQuestion);
+r.post('/:id/stage-feedback', aiLimiter, validate(progressRules), f.stageFeedback);
+r.post('/:id/complete', aiLimiter, validate(completeRules), f.complete);
+r.delete('/:id', c.deleteInterview);
+export default r;

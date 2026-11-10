@@ -1,0 +1,1 @@
+export const METRIC_LABELS = { technicalKnowledge: 'Technical knowledge', communication: 'Communication', clarity: 'Clarity', problemSolving: 'Problem solving', relevance: 'Answer relevance', completeness: 'Completeness' };
