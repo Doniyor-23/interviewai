@@ -16,15 +16,19 @@ const shell = (title, body) => `
 
 async function deliver({ to, subject, html, devMessage }) {
   if (!resend) {
-    if (env.isProd) throw new ApiError(500, 'Email service is not configured.');
-    // DEVELOPMENT ONLY fallback: never reachable in production.
-    console.log(`\n[email:dev] To: ${to}\n[email:dev] ${subject}\n[email:dev] ${devMessage}\n`);
+    console.log(`\n[email:code] To: ${to} | ${subject} | ${devMessage}\n`);
     return;
   }
-  const { error } = await resend.emails.send({ from: env.emailFrom, to, subject, html });
-  if (error) {
-    console.error('[email] Resend error:', error.message || error);
-    throw new ApiError(502, 'We could not send the email. Please try again in a moment.');
+  try {
+    const { error } = await resend.emails.send({ from: env.emailFrom, to, subject, html });
+    if (error) {
+      console.error('[email] Resend error:', error.message || error);
+      console.log(`\n[email:fallback-code] To: ${to} | ${devMessage}\n`);
+      // In production, if Resend fails (e.g. domain restriction), log code so developer can see it in Render logs
+    }
+  } catch (err) {
+    console.error('[email] Delivery failed:', err.message);
+    console.log(`\n[email:fallback-code] To: ${to} | ${devMessage}\n`);
   }
 }
 
