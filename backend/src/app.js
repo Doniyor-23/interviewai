@@ -13,8 +13,26 @@ import progressRoutes from './routes/progressRoutes.js';
 const app = express();
 if (env.isProd) app.set('trust proxy', 1);
 
+const allowedOrigins = [
+  ...env.clientUrl.split(',').map((u) => u.trim().replace(/\/$/, '')),
+  'http://localhost:5173',
+  'http://localhost:3000',
+].filter(Boolean);
+
 app.use(helmet());
-app.use(cors({ origin: env.clientUrl, credentials: true }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/$/, '');
+      const isAllowed =
+        allowedOrigins.includes(cleanOrigin) ||
+        (cleanOrigin.endsWith('.netlify.app') && env.clientUrl.includes('netlify.app'));
+      callback(null, isAllowed);
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '600kb' })); // profile images are sent as small data URLs
 app.use(cookieParser());
 app.use('/api', generalLimiter);

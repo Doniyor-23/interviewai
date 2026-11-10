@@ -6,7 +6,12 @@ const WEEK = 7 * 24 * 60 * 60 * 1000;
 
 export const signToken = (userId) => jwt.sign({ id: userId }, env.jwtSecret, { expiresIn: '7d' });
 
-const cookieOpts = () => ({ httpOnly: true, secure: env.isProd, sameSite: 'lax', path: '/' });
+const cookieOpts = () => ({
+  httpOnly: true,
+  secure: env.isProd,
+  sameSite: env.isProd ? 'none' : 'lax',
+  path: '/',
+});
 
 export const setAuthCookie = (res, userId) => res.cookie('token', signToken(userId), { ...cookieOpts(), maxAge: WEEK });
 export const clearAuthCookie = (res) => res.clearCookie('token', cookieOpts());

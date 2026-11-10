@@ -23,5 +23,7 @@ export function assertEnv() {
     throw new Error(`Missing required environment variables: ${missing.join(', ')}. Copy .env.example to .env and fill them in.`);
   }
   if (env.jwtSecret.length < 16) throw new Error('JWT_SECRET must be at least 16 characters.');
-  if (env.isProd && !env.resendKey) throw new Error('RESEND_API_KEY is required in production.');
+  if (env.isProd && !env.resendKey) {
+    console.warn('[server] Warning: RESEND_API_KEY is not set. Email delivery will be unavailable.');
+  }
 }

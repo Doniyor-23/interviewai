@@ -4,7 +4,10 @@ import { User } from '../models/User.js';
 import { ApiError, asyncHandler } from '../utils/ApiError.js';
 
 export const protect = asyncHandler(async (req, _res, next) => {
-  const token = req.cookies?.token;
+  let token = req.cookies?.token;
+  if (!token && req.headers.authorization?.startsWith('Bearer ')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
   if (!token) throw new ApiError(401, 'Not authenticated.');
   let payload;
   try {
