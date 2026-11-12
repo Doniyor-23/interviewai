@@ -8,8 +8,10 @@ import Button from '../../components/common/Button';
 import { FormAlert } from '../../components/common/ErrorNotice';
 import { authService } from '../../services/authService';
 import { clean, isEmail, passwordError, required } from '../../utils/validators';
+import { useTranslation } from 'react-i18next';
 
 export default function Register() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', confirmPassword: '' });
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
@@ -20,9 +22,9 @@ export default function Register() {
   const submit = async (e) => {
     e.preventDefault();
     const errs = clean({
-      firstName: required(form.firstName, 'First name'), lastName: required(form.lastName, 'Last name'),
-      email: isEmail(form.email) ? '' : 'Enter a valid email address.', password: passwordError(form.password),
-      confirmPassword: form.password === form.confirmPassword ? '' : 'Passwords do not match.',
+      firstName: required(form.firstName, t('auth.firstName')), lastName: required(form.lastName, t('auth.lastName')),
+      email: isEmail(form.email) ? '' : t('auth.invalidEmail'), password: passwordError(form.password),
+      confirmPassword: form.password === form.confirmPassword ? '' : t('auth.passwordMismatch'),
     });
     setErrors(errs); setFormError('');
     if (Object.keys(errs).length) return;
@@ -37,18 +39,18 @@ export default function Register() {
   };
 
   return (
-    <AuthLayout title="Create your account" subtitle="Start practicing in under a minute." footer={<>Already have an account? <Link to="/login" className="font-semibold text-brand-soft hover:underline">Log in</Link></>}>
+    <AuthLayout title={t('auth.createAccount')} subtitle={t('auth.registerSubtitle')} footer={<>{t('auth.haveAccount')} <Link to="/login" className="font-semibold text-brand-soft hover:underline">{t('auth.login')}</Link></>}>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <FormAlert>{formError}</FormAlert>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="First name" icon={User} autoComplete="given-name" value={form.firstName} onChange={set('firstName')} error={errors.firstName} />
-          <Input label="Last name" autoComplete="family-name" value={form.lastName} onChange={set('lastName')} error={errors.lastName} />
+          <Input label={t('auth.firstName')} icon={User} autoComplete="given-name" value={form.firstName} onChange={set('firstName')} error={errors.firstName} />
+          <Input label={t('auth.lastName')} autoComplete="family-name" value={form.lastName} onChange={set('lastName')} error={errors.lastName} />
         </div>
-        <Input label="Email" type="email" icon={Mail} autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set('email')} error={errors.email} />
-        <Input label="Password" type="password" icon={Lock} autoComplete="new-password" hint="8+ characters with a letter and a number." value={form.password} onChange={set('password')} error={errors.password} />
+        <Input label={t('auth.email')} type="email" icon={Mail} autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set('email')} error={errors.email} />
+        <Input label={t('auth.password')} type="password" icon={Lock} autoComplete="new-password" hint={t('auth.passwordHint')} value={form.password} onChange={set('password')} error={errors.password} />
         <PasswordStrength password={form.password} />
-        <Input label="Confirm password" type="password" icon={Lock} autoComplete="new-password" value={form.confirmPassword} onChange={set('confirmPassword')} error={errors.confirmPassword} />
-        <Button type="submit" loading={loading} className="w-full">Create account</Button>
+        <Input label={t('auth.confirmPassword')} type="password" icon={Lock} autoComplete="new-password" value={form.confirmPassword} onChange={set('confirmPassword')} error={errors.confirmPassword} />
+        <Button type="submit" loading={loading} className="w-full">{t('auth.createAccount')}</Button>
       </form>
     </AuthLayout>
   );

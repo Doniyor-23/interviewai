@@ -9,14 +9,18 @@ import { PageLoader } from '../../components/common/Spinner';
 import ConfigSummary from './ConfigSummary';
 import { AiOrb, StatusPill, Waveform } from '../../components/interview/Visuals';
 import VoiceSettings from '../../components/interview/VoiceSettings';
+import WebcamPreview from '../../components/interview/WebcamPreview';
 import AnswerFeedback from '../../components/interview/AnswerFeedback';
 import StageFeedback from '../../components/interview/StageFeedback';
 import { useInterviewConfig } from '../../context/InterviewConfigContext';
 import { useToast } from '../../context/ToastContext';
 import { useSpeechSynthesis } from '../../hooks/useSpeechSynthesis';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import { useWebcam } from '../../hooks/useWebcam';
+import { useTranslation } from 'react-i18next';
 import { interviewService } from '../../services/interviewService';
 import { labelOf } from '../../utils/careers';
+import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 
 const mmss = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 const TICKING = ['preparing', 'speaking', 'waiting', 'listening', 'processing', 'review', 'preparing_next', 'stage_loading', 'stage_feedback'];
@@ -24,6 +28,7 @@ const THINKING = ['processing', 'preparing', 'preparing_next', 'stage_loading', 
 const loadPref = () => { try { return localStorage.getItem('interviewai:speechOn') !== 'false'; } catch { return true; } };
 
 export default function InterviewRoom() {
+  const { t } = useTranslation();
   const { id: routeId } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -36,6 +41,7 @@ export default function InterviewRoom() {
   const [conflictId, setConflictId] = useState(null);
   const [showEnd, setShowEnd] = useState(false);
   const [showVoice, setShowVoice] = useState(false);
+  const [voiceNotice, setVoiceNotice] = useState('');
   const [speechOn, setSpeechOnState] = useState(loadPref);
   const [elapsed, setElapsed] = useState(0);
   const [review, setReview] = useState(null);
@@ -47,6 +53,7 @@ export default function InterviewRoom() {
   const lang = state?.config?.language || config.language;
   const synth = useSpeechSynthesis(lang);
   const rec = useSpeechRecognition(lang);
+  const webcam = useWebcam();
   const setSpeechOn = (v) => { setSpeechOnState(v); if (!v) synth.cancel(); try { localStorage.setItem('interviewai:speechOn', String(v)); } catch { /* ignore */ } };
 
   /* ---- timer (counts only while the interview is actively running) ---- */
@@ -78,6 +85,12 @@ export default function InterviewRoom() {
   const present = (text) => {
     clearTimeout(speakTimer.current);
     if (!speechOn || !synth.supported) { setUi('waiting'); return; }
+    if (!synth.hasVoiceForLang) {
+      setVoiceNotice(lang === 'uz' ? 'Bu qurilmada o‘zbekcha ovoz topilmadi. Savol matn ko‘rinishida berildi.' : lang === 'ru' ? 'На устройстве не найден русский голос. Вопрос показан текстом.' : 'No English voice is available on this device. The question is shown as text.');
+      setUi('waiting');
+      return;
+    }
+    setVoiceNotice('');
     setUi('speaking');
     const done = () => { clearTimeout(speakTimer.current); setUi((u) => (u === 'speaking' ? 'waiting' : u)); };
     synth.speak(text, { onEnd: done });
@@ -105,7 +118,8 @@ export default function InterviewRoom() {
   async function begin(abandon = false) {
     setUi('preparing'); setErr(''); setConflictId(null);
     try {
-      const r = await interviewService.start({ ...config, abandonActive: abandon });
+      const { languageExplicit: _languageExplicit, ...interviewConfig } = config;
+      const r = await interviewService.start({ ...interviewConfig, cameraEnabled: webcam.enabled, abandonActive: abandon });
       setElapsed(0);
       navigate(`/interview/room/${r.state.interviewId}`, { replace: true });
       await enterState(r.state);
@@ -128,7 +142,7 @@ export default function InterviewRoom() {
     try { const r = await interviewService.stageFeedback(iid, { elapsedSeconds: elapsed }); await enterState(r.state); } catch (e) { fail(e, () => loadStageFeedback(iid)); }
   }
   async function finish(early) {
-    setShowEnd(false); rec.stop(); synth.cancel(); clearTimeout(speakTimer.current); setUi('completing'); setErr('');
+    setShowEnd(false); rec.stop(); synth.cancel(); webcam.disable(); clearTimeout(speakTimer.current); setUi('completing'); setErr('');
     try {
       const r = await interviewService.complete(state.interviewId, { early, elapsedSeconds: elapsed });
       if (r.abandoned) { toast.success(r.message); navigate('/dashboard', { replace: true }); } else navigate(`/interviews/${state.interviewId}`, { replace: true });
@@ -150,27 +164,28 @@ export default function InterviewRoom() {
     } finally { submitting.current = false; }
   }
 
-  const toggleMic = () => {
+  const toggleMic = async () => {
     if (rec.listening) { rec.stop(); setUi('waiting'); return; }
     clearTimeout(speakTimer.current); synth.cancel();
     usedMic.current = true;
-    if (rec.start()) setUi('listening'); else setUi('waiting');
+    setUi('waiting');
+    if (await rec.start()) setUi('listening'); else setUi('waiting');
   };
   const pause = () => { setPaused(true); if (synth.speaking) synth.pause(); if (rec.listening) { rec.stop(); setUi('waiting'); } };
   const resume = () => { setPaused(false); if (synth.paused) synth.resume(); };
   const openReview = async () => {
     try { const r = await interviewService.get(state.interviewId); const s = state.stage.key; setReview(r.interview.questions.filter((q) => q.stage === s).map((q) => ({ q, a: r.interview.answers.find((a) => String(a.questionId) === String(q._id)) }))); } catch (e) { toast.error(e.message); }
   };
-  const testVoice = () => synth.speak(lang === 'uz' ? 'Salom! Men sizning suhbatdoshingizman.' : 'Hello! I am your AI interviewer.');
+  const testVoice = () => synth.speak(lang === 'uz' ? 'Salom! Men sizning suhbatdoshingizman.' : lang === 'ru' ? 'Здравствуйте! Я ваш AI-интервьюер.' : 'Hello! I am your AI interviewer.');
 
   /* ---- simple screens ---- */
   if (ui === 'loading') return <div className="min-h-screen bg-ink-900"><PageLoader /></div>;
   if (ui === 'notfound' || ui === 'closed') {
     return (
       <Shell><div className="surface mx-auto mt-16 max-w-md p-8 text-center"><AlertCircle className="mx-auto text-amber-300" />
-        <h1 className="mt-3 text-xl font-semibold">{ui === 'closed' ? 'This interview has ended' : 'Interview not found'}</h1>
-        <p className="mt-2 text-sm text-muted">{ui === 'closed' ? 'It was closed and can no longer be resumed.' : err}</p>
-        <Button to="/dashboard" className="mt-6">Back to dashboard</Button></div></Shell>
+        <h1 className="mt-3 text-xl font-semibold">{ui === 'closed' ? t('room.ended') : t('room.notFound')}</h1>
+        <p className="mt-2 text-sm text-muted">{ui === 'closed' ? t('room.closed') : err}</p>
+        <Button to="/dashboard" className="mt-6">{t('room.backDashboard')}</Button></div></Shell>
     );
   }
 
@@ -182,22 +197,22 @@ export default function InterviewRoom() {
       <Shell>
         <div className="mx-auto grid max-w-4xl items-start gap-6 py-8 lg:grid-cols-[1.3fr_1fr]">
           <div className="space-y-5">
-            <div><h1 className="text-3xl font-semibold">{resumeable ? 'Resume your interview' : 'Ready when you are'}</h1>
-              <p className="mt-2 text-muted">{resumeable ? `You are on question ${state.progress.questionNumber} in the ${state.stage.name} stage. Your progress is saved.` : 'The AI will ask questions one at a time. Answer by voice or by typing.'}</p></div>
+            <div><h1 className="text-3xl font-semibold">{resumeable ? t('room.resumeTitle') : t('room.readyTitle')}</h1>
+              <p className="mt-2 text-muted">{resumeable ? t('room.resumeProgress', { question: state.progress.questionNumber, stage: state.stage.name }) : t('room.intro')}</p></div>
             {conflictId && (
-              <div className="surface border-amber-400/40 p-5"><p className="font-semibold">You already have an interview in progress.</p>
-                <p className="mt-1 text-sm text-muted">Resume it, or discard it and start the new one.</p>
-                <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" onClick={() => window.location.assign(`/interview/room/${conflictId}`)}>Resume it</Button><Button size="sm" variant="outlineDanger" onClick={() => begin(true)}>Discard and start new</Button></div></div>
+              <div className="surface border-amber-400/40 p-5"><p className="font-semibold">{t('room.conflictTitle')}</p>
+                <p className="mt-1 text-sm text-muted">{t('room.conflictText')}</p>
+                <div className="mt-4 flex flex-wrap gap-2"><Button size="sm" onClick={() => window.location.assign(`/interview/room/${conflictId}`)}>{t('room.resume')}</Button><Button size="sm" variant="outlineDanger" onClick={() => begin(true)}>{t('room.discard')}</Button></div></div>
             )}
             <FormAlert>{err}</FormAlert>
-            <div className="surface p-5"><h2 className="mb-4 flex items-center gap-2 font-sans text-base font-semibold"><Volume2 size={18} className="text-brand-soft" />Voice and microphone</h2>
+            <div className="surface p-5"><h2 className="mb-4 flex items-center gap-2 font-sans text-base font-semibold"><Volume2 size={18} className="text-brand-soft" />{t('room.voiceMic')}</h2>
               <VoiceSettings synth={synth} speechOn={speechOn} setSpeechOn={setSpeechOn} lang={cfg.language} recognitionSupported={rec.supported} test={testVoice} /></div>
             <div className="flex flex-wrap gap-3">
-              {resumeable ? <Button size="lg" icon={Play} onClick={() => enterState(state)}>Resume interview</Button> : <Button size="lg" icon={Play} onClick={() => begin(false)} loading={ui === 'preparing'}>Begin interview</Button>}
-              <Button to={resumeable ? '/dashboard' : '/interview/setup'} variant="ghost" size="lg">{resumeable ? 'Back to dashboard' : 'Edit setup'}</Button>
+              {resumeable ? <Button size="lg" icon={Play} onClick={() => enterState(state)}>{t('room.resumeInterview')}</Button> : <Button size="lg" icon={Play} onClick={() => begin(false)} loading={ui === 'preparing'}>{t('room.begin')}</Button>}
+              <Button to={resumeable ? '/dashboard' : '/interview/setup'} variant="ghost" size="lg">{resumeable ? t('room.backDashboard') : t('setup.title')}</Button>
             </div>
           </div>
-          <ConfigSummary config={{ ...cfg, durationMinutes: cfg.durationMinutes }} />
+          <div className="space-y-5"><ConfigSummary config={{ ...cfg, durationMinutes: cfg.durationMinutes }} /><WebcamPreview webcam={webcam} /></div>
         </div>
       </Shell>
     );
@@ -213,7 +228,7 @@ export default function InterviewRoom() {
     <Shell
       header={
         <div className="flex flex-1 items-center justify-between gap-3">
-          <div className="min-w-0"><p className="truncate text-sm font-semibold">{state.stage.name}</p><p className="text-xs text-muted">Question {p.questionNumber} of about {Math.max(p.planned, p.questionNumber)}</p></div>
+          <div className="min-w-0"><p className="truncate text-sm font-semibold">{state.stage.name}</p><p className="text-xs text-muted">Question {p.questionNumber} of about {Math.max(p.planned, p.questionNumber)} · {state.config.language.toUpperCase()}</p></div>
           <div className="flex items-center gap-1.5 sm:gap-2">
             <span className={`rounded-lg bg-ink-700 px-2.5 py-1.5 font-display text-sm tabular-nums ${over ? 'text-amber-300' : ''}`} title={over ? 'Over the planned time' : 'Elapsed time'}>{mmss(elapsed)}<span className="text-muted"> / {state.config.durationMinutes}:00</span></span>
             <Button variant="secondary" size="sm" icon={Settings2} onClick={() => setShowVoice((v) => !v)} aria-label="Voice settings"><span className="hidden sm:inline">Voice</span></Button>
@@ -223,7 +238,8 @@ export default function InterviewRoom() {
         </div>
       }
     >
-      <div className="mx-auto max-w-4xl space-y-5 py-6">
+      <div className="mx-auto grid max-w-6xl items-start gap-5 py-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+       <div className="min-w-0 space-y-5">
         <ol className="flex items-center gap-2" aria-label="Interview stages">
           {p.stages.map((s, i) => (
             <li key={s.key} className="flex-1" title={s.name}>
@@ -278,7 +294,7 @@ export default function InterviewRoom() {
                       <div className="w-full max-w-sm"><Waveform active={rec.listening} tone="user" height={36} /></div>
                     </>
                   ) : (
-                    <div className="flex items-center gap-2 text-sm text-amber-300"><MicOff size={16} />Voice input isn’t supported in this browser. Type your answer below (Chrome or Edge support speaking).</div>
+                    <div className="flex items-center gap-2 text-sm text-amber-300"><MicOff size={16} />{lang === 'uz' ? t('interview.speechUzFallback') : lang === 'ru' ? 'Распознавание речи недоступно. Введите ответ текстом.' : 'Voice input is not supported in this browser. Type your answer below.'}</div>
                   )}
                 </div>
                 {rec.error && <div className="mt-4"><FormAlert>{rec.error}</FormAlert></div>}
@@ -299,6 +315,8 @@ export default function InterviewRoom() {
             {ui === 'review' && state.answer && <AnswerFeedback answer={state.answer} stageEnding={state.stageEnding} busy={false} error={err} onContinue={() => advance()} />}
           </>
         )}
+       </div>
+       <aside className="lg:sticky lg:top-20"><WebcamPreview webcam={webcam} /></aside>
       </div>
 
       {paused && (
@@ -323,7 +341,7 @@ function Shell({ header, children }) {
   return (
     <div className="min-h-screen bg-ink-900">
       <header className="sticky top-0 z-30 border-b border-line bg-ink-900/90 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-4xl items-center gap-4 px-4"><Logo to="/dashboard" className="shrink-0 [&>span:last-child]:hidden sm:[&>span:last-child]:inline" />{header || <div className="flex-1" />}</div>
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-4 px-4"><Logo to="/dashboard" className="shrink-0 [&>span:last-child]:hidden sm:[&>span:last-child]:inline" />{header || <div className="flex-1" />}<LanguageSwitcher /></div>
       </header>
       <main className="px-4">{children}</main>
     </div>

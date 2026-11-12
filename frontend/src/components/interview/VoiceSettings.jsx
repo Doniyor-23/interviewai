@@ -2,16 +2,19 @@ import { Volume2, VolumeX } from 'lucide-react';
 import SelectField from '../forms/SelectField';
 import Button from '../common/Button';
 import { FormAlert } from '../common/ErrorNotice';
+import { useTranslation } from 'react-i18next';
 
 /** Voice output settings + honest browser-support notices. */
 export default function VoiceSettings({ synth, speechOn, setSpeechOn, lang, recognitionSupported, test }) {
-  const langName = lang === 'uz' ? 'Uzbek' : 'English';
-  const options = [{ value: '', label: synth.matching.length ? 'Automatic (best match)' : 'Browser default' }, ...[...synth.matching, ...synth.voices.filter((v) => !synth.matching.includes(v))].map((v) => ({ value: v.voiceURI, label: `${v.name} (${v.lang})` }))];
+  const { t } = useTranslation();
+  const langName = lang === 'uz' ? 'Uzbek' : lang === 'ru' ? 'Russian' : 'English';
+  const options = [{ value: '', label: synth.matching.length ? 'Automatic (best match)' : 'No matching device voice' }, ...synth.matching.map((v) => ({ value: v.voiceURI, label: `${v.name} (${v.lang})` }))];
   return (
     <div className="space-y-4">
       {!synth.supported && <FormAlert>This browser cannot read questions aloud. Questions will be shown as text only. Chrome or Edge work best.</FormAlert>}
-      {synth.supported && !synth.hasVoiceForLang && <FormAlert>No {langName} voice was found in this browser, so the question may sound wrong or stay silent. Pick another voice below, or turn voice off and read the questions on screen.</FormAlert>}
-      {!recognitionSupported && <FormAlert>Voice answers are not supported in this browser. Use Chrome or Edge to speak your answers; here you can type them instead.</FormAlert>}
+      {synth.supported && !synth.hasVoiceForLang && <FormAlert>No {langName} voice is available on this device. Turn voice off and read the question shown on screen.</FormAlert>}
+      {lang === 'uz' && <FormAlert>{t('interview.uzbLocalSpeech')}</FormAlert>}
+      {!recognitionSupported && lang !== 'uz' && <FormAlert>Voice answers are not supported in this browser. You can type your answer instead.</FormAlert>}
       {synth.supported && (
         <>
           <button type="button" onClick={() => setSpeechOn(!speechOn)} className="flex w-full items-center justify-between rounded-xl border border-line bg-ink-900/60 px-4 py-3 text-left text-sm">

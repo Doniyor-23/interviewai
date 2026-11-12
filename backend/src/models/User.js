@@ -8,7 +8,7 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true, select: false },
     isEmailVerified: { type: Boolean, default: false },
     profileImage: { type: String, default: '', maxlength: 400000 },
-    preferredLanguage: { type: String, enum: ['en', 'uz'], default: 'en' },
+    preferredLanguage: { type: String, enum: ['uz', 'en', 'ru'], default: 'uz' },
     notifications: {
       email: { type: Boolean, default: true },
       practiceReminders: { type: Boolean, default: true },

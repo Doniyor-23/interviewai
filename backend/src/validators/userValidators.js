@@ -4,7 +4,7 @@ export const profileRules = (b) => {
   const e = {};
   if (b.firstName !== undefined) e.firstName = nameError(b.firstName, 'First name');
   if (b.lastName !== undefined) e.lastName = nameError(b.lastName, 'Last name');
-  if (b.preferredLanguage !== undefined && !['en', 'uz'].includes(b.preferredLanguage)) e.preferredLanguage = 'Unsupported language.';
+  if (b.preferredLanguage !== undefined && !['uz', 'en', 'ru'].includes(b.preferredLanguage)) e.preferredLanguage = 'Unsupported language.';
   if (b.profileImage !== undefined && b.profileImage !== '') {
     if (typeof b.profileImage !== 'string' || !/^data:image\/(png|jpe?g|webp);base64,/.test(b.profileImage)) e.profileImage = 'Profile image must be a PNG, JPEG or WebP image.';
     else if (b.profileImage.length > 400000) e.profileImage = 'Profile image is too large (max ~300 KB).';

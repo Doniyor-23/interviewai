@@ -4,6 +4,8 @@ import { History, LayoutDashboard, LogOut, Menu, PlayCircle, Settings, TrendingU
 import Logo from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
 import { fullName, initials } from '../utils/format';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitcher from '../components/common/LanguageSwitcher';
 
 const nav = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -23,6 +25,7 @@ export function Avatar({ user, size = 36 }) {
 }
 
 export default function DashboardLayout() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const [open, setOpen] = useState(false);
   const { pathname } = useLocation();
@@ -37,7 +40,7 @@ export default function DashboardLayout() {
       <nav className="flex-1 space-y-1 px-3" aria-label="Main">
         {nav.map(({ to, label, icon: Icon }) => (
           <NavLink key={to} to={to} className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium transition-colors ${isActive ? 'bg-brand-violet/18 text-fg ring-1 ring-brand-violet/40' : 'text-muted hover:bg-ink-700 hover:text-fg'}`}>
-            <Icon size={18} />{label}
+            <Icon size={18} />{t(({ Dashboard: 'nav.dashboard', 'Start Interview': 'nav.start', 'My Interviews': 'nav.interviews', 'My Progress': 'nav.progress', Profile: 'nav.profile', Settings: 'nav.settings' })[label])}
           </NavLink>
         ))}
       </nav>
@@ -46,7 +49,7 @@ export default function DashboardLayout() {
           <Avatar user={user} />
           <div className="min-w-0"><p className="truncate text-sm font-semibold">{fullName(user)}</p><p className="truncate text-xs text-muted">{user?.email}</p></div>
         </div>
-        <button onClick={handleLogout} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-muted hover:bg-red-500/10 hover:text-red-300"><LogOut size={18} />Logout</button>
+        <button onClick={handleLogout} className="mt-1 flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm font-medium text-muted hover:bg-red-500/10 hover:text-red-300"><LogOut size={18} />{t('nav.logout')}</button>
       </div>
     </div>
   );
@@ -54,9 +57,9 @@ export default function DashboardLayout() {
   return (
     <div className="min-h-screen lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-line bg-ink-950 lg:block">{sidebar}</aside>
-      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-line bg-ink-900/90 px-4 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b border-line bg-ink-900/90 px-4 backdrop-blur">
         <Logo to="/dashboard" />
-        <button onClick={() => setOpen(true)} aria-label="Open menu" className="grid size-10 place-items-center rounded-lg text-muted hover:bg-ink-700"><Menu size={22} /></button>
+        <div className="flex items-center gap-2"><LanguageSwitcher /><button onClick={() => setOpen(true)} aria-label="Open menu" className="grid size-10 place-items-center rounded-lg text-muted hover:bg-ink-700 lg:hidden"><Menu size={22} /></button></div>
       </header>
       {open && (
         <div className="fixed inset-0 z-40 lg:hidden">

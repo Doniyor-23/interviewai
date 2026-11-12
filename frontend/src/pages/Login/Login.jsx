@@ -9,8 +9,10 @@ import { authService } from '../../services/authService';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { clean, isEmail, required } from '../../utils/validators';
+import { useTranslation } from 'react-i18next';
 
 export default function Login() {
+  const { t } = useTranslation();
   const [form, setForm] = useState({ email: '', password: '' });
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
@@ -23,14 +25,14 @@ export default function Login() {
 
   const submit = async (e) => {
     e.preventDefault();
-    const errs = clean({ email: isEmail(form.email) ? '' : 'Enter a valid email address.', password: required(form.password, 'Password') });
+    const errs = clean({ email: isEmail(form.email) ? '' : t('auth.invalidEmail'), password: required(form.password, t('auth.password')) });
     setErrors(errs); setFormError('');
     if (Object.keys(errs).length) return;
     setLoading(true);
     try {
       const { user } = await authService.login(form);
       setUser(user);
-      toast.success(`Welcome back, ${user.firstName}!`);
+      toast.success(t('auth.welcome', { name: user.firstName }));
       navigate(location.state?.from || '/dashboard', { replace: true });
     } catch (err) {
       if (err.code === 'EMAIL_NOT_VERIFIED') {
@@ -43,13 +45,13 @@ export default function Login() {
   };
 
   return (
-    <AuthLayout title="Welcome back" subtitle="Log in to continue practicing." footer={<>New here? <Link to="/register" className="font-semibold text-brand-soft hover:underline">Create an account</Link></>}>
+    <AuthLayout title={t('auth.welcomeTitle')} subtitle={t('auth.loginSubtitle')} footer={<>{t('auth.newHere')} <Link to="/register" className="font-semibold text-brand-soft hover:underline">{t('auth.createAccount')}</Link></>}>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <FormAlert>{formError}</FormAlert>
-        <Input label="Email" type="email" icon={Mail} autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set('email')} error={errors.email} />
-        <Input label="Password" type="password" icon={Lock} autoComplete="current-password" placeholder="Your password" value={form.password} onChange={set('password')} error={errors.password} />
-        <div className="text-right"><Link to="/forgot-password" className="text-sm text-muted hover:text-fg">Forgot password?</Link></div>
-        <Button type="submit" loading={loading} className="w-full">Log in</Button>
+        <Input label={t('auth.email')} type="email" icon={Mail} autoComplete="email" placeholder="you@example.com" value={form.email} onChange={set('email')} error={errors.email} />
+        <Input label={t('auth.password')} type="password" icon={Lock} autoComplete="current-password" placeholder={t('auth.passwordPlaceholder')} value={form.password} onChange={set('password')} error={errors.password} />
+        <div className="text-right"><Link to="/forgot-password" className="text-sm text-muted hover:text-fg">{t('auth.forgotPassword')}</Link></div>
+        <Button type="submit" loading={loading} className="w-full">{t('auth.login')}</Button>
       </form>
     </AuthLayout>
   );

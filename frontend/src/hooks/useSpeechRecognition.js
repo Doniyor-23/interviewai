@@ -10,10 +10,13 @@ const FATAL = {
   'bad-grammar': 'Speech recognition failed. Please type your answer.',
 };
 
-/** Browser-native speech-to-text. `transcript` is the editable answer text; raw audio is never captured by us. */
+/** Browser-native speech-to-text. The returned transcript remains editable before submission. */
 export function useSpeechRecognition(lang = 'en') {
   const SR = getSR();
-  const supported = !!SR;
+  // Uzbek is permitted only with the browser's on-device API: never silently send
+  // Uzbek interview audio to a remote speech service. Other languages retain the
+  // existing browser recognition behavior.
+  const supported = !!SR && (lang !== 'uz' || (typeof SR.available === 'function' && typeof SR.install === 'function'));
   const [listening, setListening] = useState(false);
   const [transcript, setTranscriptState] = useState('');
   const [interim, setInterim] = useState('');
@@ -47,7 +50,8 @@ export function useSpeechRecognition(lang = 'en') {
 
   const begin = useCallback(() => {
     const r = new SR();
-    r.lang = lang === 'uz' ? 'uz-UZ' : 'en-US';
+    r.lang = lang === 'uz' ? 'uz-UZ' : lang === 'ru' ? 'ru-RU' : 'en-US';
+    if (lang === 'uz') r.processLocally = true;
     r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
     r.onresult = (e) => {
       let live = '';
@@ -77,13 +81,31 @@ export function useSpeechRecognition(lang = 'en') {
     r.start();
   }, [SR, lang, teardown, setTranscript]);
 
-  const start = useCallback(() => {
-    if (!SR) { setError('Speech recognition is not supported in this browser. Use Chrome or Edge, or type your answer.'); return false; }
+  const start = useCallback(async () => {
+    if (!supported) { setError(lang === 'uz' ? 'On-device Uzbek recognition is not available in this browser. Type your answer instead.' : 'Speech recognition is not supported in this browser. Use Chrome or Edge, or type your answer.'); return false; }
     if (want.current) return true;
+    if (lang === 'uz') {
+      try {
+        const options = { langs: ['uz-UZ'], processLocally: true, quality: 'dictation' };
+        const availability = await SR.available(options);
+        if (availability === 'unavailable') {
+          setError('On-device Uzbek speech recognition is unavailable. Type your answer instead. No Gemini transcription is used.');
+          return false;
+        }
+        if (availability !== 'available') {
+          setError('Downloading the on-device Uzbek language pack…');
+          const installed = await SR.install(options);
+          if (!installed) { setError('Could not install the on-device Uzbek language pack. Type your answer instead.'); return false; }
+        }
+      } catch {
+        setError('On-device Uzbek speech recognition is unavailable here. Type your answer instead.');
+        return false;
+      }
+    }
     setError(''); finals.current = ''; base.current = textRef.current ? `${textRef.current.trim()} ` : '';
     restarts.current = 0; silent.current = 0; gotAny.current = false; want.current = true;
     try { begin(); setListening(true); return true; } catch { want.current = false; setError('Could not start the microphone. Try again or type your answer.'); return false; }
-  }, [SR, begin]);
+  }, [SR, supported, lang, begin]);
 
   const stop = useCallback(() => {
     want.current = false;

@@ -1,10 +1,14 @@
 import { createContext, useCallback, useContext, useMemo, useState } from 'react';
 
 const KEY = 'interviewai:config';
-export const DEFAULT_CONFIG = { career: 'frontend', experienceLevel: 'junior', difficulty: 'medium', durationMinutes: 20, language: 'en', interviewType: 'mixed' };
+export const DEFAULT_CONFIG = { career: 'frontend', experienceLevel: 'junior', difficulty: 'medium', durationMinutes: 20, language: 'uz', interviewType: 'mixed', cameraEnabled: false };
 
 const load = () => {
-  try { return { ...DEFAULT_CONFIG, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return DEFAULT_CONFIG; }
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const siteLanguage = localStorage.getItem('interviewai:language');
+    return { ...DEFAULT_CONFIG, ...saved, language: saved.language || (['uz', 'en', 'ru'].includes(siteLanguage) ? siteLanguage : DEFAULT_CONFIG.language), languageExplicit: Object.hasOwn(saved, 'language') };
+  } catch { return { ...DEFAULT_CONFIG, languageExplicit: false }; }
 };
 
 const Ctx = createContext(null);
@@ -15,6 +19,7 @@ export function InterviewConfigProvider({ children }) {
   const setConfig = useCallback((patch) => {
     setConfigState((prev) => {
       const next = { ...prev, ...patch };
+      if (Object.hasOwn(patch, 'language')) next.languageExplicit = true;
       try { localStorage.setItem(KEY, JSON.stringify(next)); } catch { /* storage unavailable */ }
       return next;
     });

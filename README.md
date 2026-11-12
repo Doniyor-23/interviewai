@@ -4,7 +4,7 @@ React + Vite + Tailwind v4 frontend, Express + MongoDB backend. Part 2 adds Gemi
 
 ## Setup
 
-Requires Node 18+ and a MongoDB Atlas cluster.
+Requires Node.js 22+ (the installed Google Gen AI SDK v3 requirement) and a MongoDB Atlas cluster.
 
 ```bash
 # 1. Backend
@@ -28,7 +28,7 @@ The Vite dev server proxies `/api` to `localhost:5000`, so the HTTP-only auth co
 | `PORT` | API port. Default 5000. |
 | `MONGODB_URI` | Your Atlas connection string. The app always uses the `interviewai` database. In Atlas, allow your IP under Network Access. |
 | `JWT_SECRET` | Long random string (16+ chars). Generate: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
-| `GEMINI_API_KEY` | Not used until Part 2. Leave empty. |
+| `GEMINI_API_KEY` | Required for AI interviews, evaluation, and reports. Keep it on the backend only. |
 | `RESEND_API_KEY` | Optional in development. Empty = verification codes and reset links print in the backend terminal. **Required** when `NODE_ENV=production`. |
 | `EMAIL_FROM` | e.g. `InterviewAI <noreply@yourdomain.com>`. Defaults to Resend's test sender, which only delivers to your own Resend account email until you verify a domain. |
 | `CLIENT_URL` | Frontend origin for CORS and reset links. Default `http://localhost:5173`. |
@@ -55,8 +55,7 @@ Interview state is derived from what is saved in MongoDB (`interviewEngine.js`),
 Every answer is saved *before* the AI call and its evaluation right after; a failed evaluation can simply be retried.
 Scores are computed from saved evaluations (stage = mean of its answers, overall = mean of all answers); Gemini only writes the text.
 
-**Frontend voice** is 100% browser-native (no paid API): `useSpeechSynthesis` (TTS) and `useSpeechRecognition` (STT).
-Raw audio is never recorded or stored; only the transcript text you submit.
+**Frontend voice** uses browser speech synthesis only when the device provides a voice matching the selected interview language. Uzbek recognition is on-device only when the browser exposes local recognition and has (or can install) an Uzbek language pack; otherwise, users can type. English and Russian use the browser's Web Speech recognition where available, and some browsers may process that audio through their own remote service. The app sends no recorded interview audio to Gemini or another transcription API.
 
 ### Gemini model configuration
 Model names change often. By default the server tries `gemini-flash-latest`, `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`,
@@ -65,7 +64,7 @@ and if none work it lists the models your key can access and picks a current Fla
 ### Browser support
 Speech recognition works in Chrome and Edge (desktop and Android). Safari support is partial and Firefox has none, in which case the typed-answer
 fallback is shown. Chrome's speech recognition sends audio to Google's speech service, so it needs an internet connection.
-Uzbek voices/recognition depend on the OS and browser: the app checks for an Uzbek voice and tells you when one is missing.
+AI speech output is used only when the device provides a voice matching the interview language. Otherwise, the question remains visible as text. On-device Uzbek recognition depends on the browser and installed language pack; typing remains available.
 
 ## Security notes
 

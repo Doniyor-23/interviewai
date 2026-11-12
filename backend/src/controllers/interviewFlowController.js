@@ -15,7 +15,7 @@ async function load(req, { active = true } = {}) {
   if (active && iv.status !== 'in_progress') throw new ApiError(409, 'This interview is not in progress.', { code: 'NOT_IN_PROGRESS', status: iv.status });
   return iv;
 }
-const config = (iv) => ({ career: iv.career, experienceLevel: iv.experienceLevel, difficulty: iv.difficulty, language: iv.language, interviewType: iv.interviewType });
+const config = (iv) => ({ career: iv.career, experienceLevel: iv.experienceLevel, difficulty: iv.difficulty, language: iv.language || 'uz', interviewType: iv.interviewType });
 const history = (iv) => engine.qaFor(iv).slice(-MAX_HISTORY).map(({ question, answer, score }) => ({ question, answer, score }));
 const clampElapsed = (iv, v) => {
   if (typeof v !== 'number') return iv.timeSpentSeconds || 0;
@@ -38,6 +38,7 @@ export const start = asyncHandler(async (req, res) => {
   if (active) await Interview.updateOne({ _id: active._id, userId: req.user._id }, { status: 'abandoned', completedAt: new Date() });
   const iv = await Interview.create({
     ...cfg, userId: req.user._id, durationMinutes, status: 'in_progress', startedAt: new Date(), stagePlan, currentStageIndex: 0,
+    cameraEnabled: b.cameraEnabled === true,
     questions: [{ order: 1, stage: stagePlan[0].key, text: q.text, category: q.topic }],
   });
   iv.currentQuestionId = iv.questions[0]._id;

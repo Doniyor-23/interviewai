@@ -4,7 +4,6 @@ import { Lock } from 'lucide-react';
 import PageHeader from '../../components/common/PageHeader';
 import Input from '../../components/forms/Input';
 import PasswordStrength from '../../components/forms/PasswordStrength';
-import SelectField from '../../components/forms/SelectField';
 import Toggle from '../../components/forms/Toggle';
 import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
@@ -12,7 +11,7 @@ import { FormAlert } from '../../components/common/ErrorNotice';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { userService } from '../../services/userService';
-import { LANGUAGES } from '../../utils/careers';
+import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 import { clean, passwordError, required } from '../../utils/validators';
 
 const Section = ({ title, text, children }) => (
@@ -72,8 +71,8 @@ export default function Settings() {
       <PageHeader title="Settings" subtitle="Security, language and notifications." />
       <div className="max-w-3xl space-y-6">
         <Section title="Change password"><PasswordForm /></Section>
-        <Section title="Preferred language" text="Used as your default language for interviews and emails.">
-          <SelectField className="max-w-xs" aria-label="Preferred language" options={LANGUAGES} value={user.preferredLanguage} onChange={(e) => update({ preferredLanguage: e.target.value }, 'Language updated.')} />
+        <Section title="Preferred language" text="Changes the website language and your default language for interviews.">
+          <LanguageSwitcher />
         </Section>
         <Section title="Notifications">
           <div className="divide-y divide-line">

@@ -36,7 +36,11 @@ export const DIFFICULTIES = [
 export const DURATIONS = [
   { value: 10, label: '10 minutes' }, { value: 20, label: '20 minutes' }, { value: 30, label: '30 minutes' },
 ];
-export const LANGUAGES = [{ value: 'en', label: 'English' }, { value: 'uz', label: 'Uzbek' }];
+export const LANGUAGES = [
+  { value: 'uz', label: 'O‘zbekcha' },
+  { value: 'en', label: 'English' },
+  { value: 'ru', label: 'Русский' },
+];
 export const TYPES = [
   { value: 'technical', label: 'Technical' }, { value: 'hr', label: 'HR' },
   { value: 'behavioral', label: 'Behavioral' }, { value: 'mixed', label: 'Mixed' },

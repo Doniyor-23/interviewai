@@ -9,7 +9,7 @@
     "start": "node src/server.js"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "dependencies": {
     "@google/genai": "^3.0.0",

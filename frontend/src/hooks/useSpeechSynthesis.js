@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 const supportedNow = () => typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
-const prefix = (lang) => (lang === 'uz' ? 'uz' : 'en');
+const prefix = (lang) => (lang === 'uz' ? 'uz' : lang === 'ru' ? 'ru' : 'en');
 const matches = (v, lang) => v.lang?.toLowerCase().replace('_', '-').startsWith(prefix(lang));
 const key = (lang) => `interviewai:voice:${lang}`;
 
@@ -39,7 +39,7 @@ export function useSpeechSynthesis(lang = 'en') {
   const matching = useMemo(() => voices.filter((v) => matches(v, lang)), [voices, lang]);
   const voice = useMemo(() => {
     const chosen = voices.find((v) => v.voiceURI === voiceURI);
-    if (chosen) return chosen;
+    if (chosen && matches(chosen, lang)) return chosen;
     const pool = matching.length ? matching : [];
     const rank = (v) => (/google|natural|neural|online/i.test(v.name) ? 0 : 1) + (v.lang?.toLowerCase().startsWith(lang === 'uz' ? 'uz-uz' : 'en-us') ? 0 : 0.5);
     return [...pool].sort((a, b) => rank(a) - rank(b))[0] || null;

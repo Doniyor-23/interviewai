@@ -4,7 +4,7 @@ export const CAREERS = ['frontend', 'backend', 'uiux', 'marketing'];
 export const LEVELS = ['beginner', 'junior', 'middle', 'senior'];
 export const DIFFICULTIES = ['easy', 'medium', 'hard'];
 export const TYPES = ['technical', 'hr', 'behavioral', 'mixed'];
-export const LANGUAGES = ['en', 'uz'];
+export const LANGUAGES = ['uz', 'en', 'ru'];
 export const DURATIONS = [10, 20, 30];
 export const STATUSES = ['draft', 'in_progress', 'completed', 'abandoned'];
 
@@ -72,7 +72,8 @@ const interviewSchema = new mongoose.Schema(
     experienceLevel: { type: String, enum: LEVELS, required: true },
     difficulty: { type: String, enum: DIFFICULTIES, required: true },
     durationMinutes: { type: Number, enum: DURATIONS, default: 20 },
-    language: { type: String, enum: LANGUAGES, default: 'en' },
+    language: { type: String, enum: LANGUAGES, default: 'uz' },
+    cameraEnabled: { type: Boolean, default: false },
     interviewType: { type: String, enum: TYPES, required: true },
     status: { type: String, enum: STATUSES, default: 'draft' },
     stagePlan: [{ _id: false, key: String, name: String, targetQuestions: Number, maxQuestions: Number }],

@@ -13,7 +13,29 @@ const CAREER_CRITERIA = {
   uiux: 'design reasoning, user-centred thinking, usability and how research informs decisions',
   marketing: 'strategy, audience understanding, campaign logic, channel choice and use of analytics/metrics',
 };
-const LANG_NAME = { en: 'English', uz: "Uzbek (Latin script, natural spoken Uzbek)" };
+export const LANG_NAME = {
+  uz: "Uzbek (O'zbek tili, Lotin yozuvi)",
+  en: 'English',
+  ru: 'Russian (Русский язык)',
+};
+
+export const LANGUAGE_INSTRUCTIONS = {
+  uz: `LANGUAGE REQUIREMENT: UZBEK (O'zbek tili, Lotin yozuvi).
+- All generated questions, follow-ups, feedback, strengths, weaknesses, corrections, improved answers, stage summaries, and recommendations MUST be written in natural, fluent, and professional Uzbek (Latin script with proper o', g', sh, ch, etc.).
+- Never switch to English or Russian mid-sentence. Maintain 100% language consistency.
+- Preserve standard industry technical terms in their widely accepted form (e.g. JavaScript, React, Node.js, Frontend, Backend, API, REST, Database, MongoDB, SQL, State, Props, Hook, Component, async/await, Docker, Git, UI/UX, SEO).
+- When evaluating candidate answers: Understand both formal Uzbek and natural conversational Uzbek (including common tech loanwords such as "ishlatganman", "so'rov yuborish", "statelar", "deploy qilish"). Evaluate the technical substance, accuracy, and depth of the candidate's answer without penalizing conversational speech, informal phrasing, or accent.`,
+
+  ru: `LANGUAGE REQUIREMENT: RUSSIAN (Русский язык).
+- All generated questions, follow-ups, feedback, strengths, weaknesses, corrections, improved answers, stage summaries, and recommendations MUST be written in natural, fluent, and grammatically correct Russian.
+- Maintain 100% language consistency. Do not switch to English.
+- Preserve standard technical terms in Latin where appropriate (e.g. JavaScript, React, Node.js, API, Docker, Git).
+- When evaluating candidate answers: Understand both formal and conversational Russian engineering answers, focusing on technical depth and accuracy.`,
+
+  en: `LANGUAGE REQUIREMENT: ENGLISH.
+- All generated questions, follow-ups, feedback, strengths, weaknesses, corrections, improved answers, stage summaries, and recommendations MUST be written in clear, concise, professional English.
+- Maintain 100% language consistency.`
+};
 
 export const STAGE_FOCUS = {
   introduction: 'Candidate background, experience, interests and career motivation. Open and friendly.',
@@ -30,7 +52,9 @@ Role being interviewed for: ${CAREER_NAMES[cfg.career]}
 Candidate experience level: ${cfg.experienceLevel} (${levelHint[cfg.experienceLevel]})
 Interview difficulty: ${cfg.difficulty}
 Interview type: ${cfg.interviewType}
-Interview language: ${LANG_NAME[cfg.language] || 'English'}`;
+Interview language: ${LANG_NAME[cfg.language] || 'Uzbek'}
+
+${LANGUAGE_INSTRUCTIONS[cfg.language] || LANGUAGE_INSTRUCTIONS.uz}`;
 
 export const SYSTEM = `You are a professional, fair and concise job interviewer and career coach.
 Rules you always follow:
@@ -73,7 +97,7 @@ Evaluate the answer for this role and experience level. Scores are integers 0-10
 - score: overall quality   - relevance: does it address the question   - accuracy: correctness of facts/concepts
 - clarity: easy to follow   - completeness: covers what a good answer should   - communication: structure and professional delivery
 Guidelines: do NOT reward length for its own sake; a short correct answer can score high. Accept any technically correct alternative wording or approach; never mark an answer wrong only because it differs from your own preferred answer. If the text is transcribed speech, ignore minor transcription glitches and filler words.
-strengths/weaknesses/corrections: short specific points about THIS answer (corrections = concrete factual fixes, empty if none). improvedAnswer: a model answer the candidate could give, 2-5 sentences, same language as the interview. weakTopics: up to 3 short topic labels (1-3 words) for concepts the candidate was weak on, empty if none. followUpNeeded: true only if a short follow-up would reveal something valuable. nextAction: one of continue, follow_up, increase_difficulty, decrease_difficulty. Write all text fields in ${LANG_NAME[config.language]}.`;
+strengths/weaknesses/corrections: short specific points about THIS answer (corrections = concrete factual fixes, empty if none). improvedAnswer: a model answer the candidate could give, 2-5 sentences, same language as the interview. weakTopics: up to 3 short topic labels (1-3 words) for concepts the candidate was weak on, empty if none. followUpNeeded: true only if a short follow-up would reveal something valuable. nextAction: one of continue, follow_up, increase_difficulty, decrease_difficulty. Write all text fields strictly in ${LANG_NAME[config.language] || "Uzbek"}.`;
 }
 
 export function stagePrompt({ config, stage, qa, score }) {
@@ -82,7 +106,7 @@ Stage just completed: ${stage.name} (average score ${score}/100 computed from pe
 Questions and per-answer evaluation (data):
 ${qa.map((x, i) => `${i + 1}. Q: ${x.question}\n   A: ${String(x.answer).slice(0, 500)}\n   score ${x.score}; weaknesses: ${x.weaknesses.join('; ') || 'none'}; corrections: ${x.corrections.join('; ') || 'none'}; improved: ${String(x.improvedAnswer || '').slice(0, 300)}`).join('\n')}
 
-Write constructive, specific stage feedback based ONLY on the data above. summary: 2-3 sentences. strengths, weaknesses, incorrectPoints (incorrect or incomplete statements), improvements (actionable), improvedAnswers (one per question that needs it: question + improvedAnswer), studyTopics (specific topics to study). Write in ${LANG_NAME[config.language]}.`;
+Write constructive, specific stage feedback based ONLY on the data above. summary: 2-3 sentences. strengths, weaknesses, incorrectPoints (incorrect or incomplete statements), improvements (actionable), improvedAnswers (one per question that needs it: question + improvedAnswer), studyTopics (specific topics to study). Write strictly in ${LANG_NAME[config.language] || "Uzbek"}.`;
 }
 
 export function reportPrompt({ config, metrics, stageScores, overallScore, level, qa }) {
@@ -91,11 +115,11 @@ Computed results (facts; do not change or restate different numbers): overall ${
 Per-answer data:
 ${qa.map((x, i) => `${i + 1}. [${x.stage}] Q: ${x.question} | score ${x.score} | weaknesses: ${x.weaknesses.join('; ') || 'none'} | strengths: ${x.strengths.join('; ') || 'none'}`).join('\n')}
 
-Write: summary (3-4 sentences, honest overview), careerReadiness (2-3 sentences on readiness for a ${config.experienceLevel} ${CAREER_NAMES[config.career]} role), strengths (3-5 specific), keyMistakes (the most important mistakes or gaps, 2-5). Use only the data above; do not invent facts about the candidate. Write in ${LANG_NAME[config.language]}.`;
+Write: summary (3-4 sentences, honest overview), careerReadiness (2-3 sentences on readiness for a ${config.experienceLevel} ${CAREER_NAMES[config.career]} role), strengths (3-5 specific), keyMistakes (the most important mistakes or gaps, 2-5). Use only the data above; do not invent facts about the candidate. Write strictly in ${LANG_NAME[config.language] || "Uzbek"}.`;
 }
 
 export function recommendationsPrompt({ config, metrics, weakTopics, level }) {
   return `${head('recommendations', config)}
 Candidate level: ${level}. Metrics: ${JSON.stringify(metrics)}. Topics where they were weak: ${weakTopics.join(', ') || 'none recorded'}.
-Create a personalised learning plan of 3-5 items ordered by priority. Each item: title, description (1-2 sentences, actionable), topics (2-4 specific things to study or practise), priority (high, medium or low). Relevant to ${CAREER_NAMES[config.career]} and the weaknesses above. Write in ${LANG_NAME[config.language]}.`;
+Create a personalised learning plan of 3-5 items ordered by priority. Each item: title, description (1-2 sentences, actionable), topics (2-4 specific things to study or practise), priority (high, medium or low). Relevant to ${CAREER_NAMES[config.career]} and the weaknesses above. Write strictly in ${LANG_NAME[config.language] || "Uzbek"}.`;
 }

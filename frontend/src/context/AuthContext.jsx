@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { authService } from '../services/authService';
+import i18n from '../i18n';
 
 const AuthContext = createContext(null);
 
@@ -9,7 +10,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let alive = true;
-    authService.me().then((r) => alive && setUser(r.user)).catch(() => alive && setUser(null)).finally(() => alive && setLoading(false));
+    authService.me().then((r) => {
+      if (!alive) return;
+      setUser(r.user);
+      const language = r.user?.preferredLanguage;
+      if (['uz', 'en', 'ru'].includes(language)) {
+        i18n.changeLanguage(language);
+        try { localStorage.setItem('interviewai:language', language); } catch { /* storage unavailable */ }
+      }
+    }).catch(() => alive && setUser(null)).finally(() => alive && setLoading(false));
     const expired = () => setUser(null);
     window.addEventListener('auth:expired', expired);
     return () => { alive = false; window.removeEventListener('auth:expired', expired); };

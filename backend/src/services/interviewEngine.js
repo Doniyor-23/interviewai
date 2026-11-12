@@ -90,7 +90,7 @@ export function deriveState(iv) {
   if (!iv.stagePlan?.length) {
     // Legacy / draft record with no interview plan: nothing to run, but never crash.
     return { interviewId: sid(iv._id), status: iv.status, phase: iv.status === 'completed' ? 'completed' : 'closed', question: null, answer: null, stageFeedback: null, isLastStage: false, timeSpentSeconds: iv.timeSpentSeconds || 0,
-      config: { career: iv.career, experienceLevel: iv.experienceLevel, difficulty: iv.difficulty, language: iv.language, interviewType: iv.interviewType, durationMinutes: iv.durationMinutes },
+      config: { career: iv.career, experienceLevel: iv.experienceLevel, difficulty: iv.difficulty, language: iv.language || 'uz', interviewType: iv.interviewType, durationMinutes: iv.durationMinutes },
       stage: { key: 'introduction', name: 'Introduction', index: 0, total: 0 }, progress: { answered: 0, planned: 0, questionNumber: 0, stages: [] } };
   }
   const step = planNext(iv);
@@ -105,7 +105,7 @@ export function deriveState(iv) {
   const stage = plan[iv.currentStageIndex] || plan[0];
   const base = {
     interviewId: sid(iv._id), status: iv.status,
-    config: { career: iv.career, experienceLevel: iv.experienceLevel, difficulty: iv.difficulty, language: iv.language, interviewType: iv.interviewType, durationMinutes: iv.durationMinutes },
+    config: { career: iv.career, experienceLevel: iv.experienceLevel, difficulty: iv.difficulty, language: iv.language || 'uz', interviewType: iv.interviewType, durationMinutes: iv.durationMinutes },
     stage: { key: stage.key, name: stage.name, focus: STAGE_FOCUS[stage.key], index: iv.currentStageIndex, total: plan.length },
     progress: { answered: evaluated(iv).length, planned: plan.reduce((s, p) => s + p.targetQuestions, 0), questionNumber: iv.questions.length, stages },
     timeSpentSeconds: iv.timeSpentSeconds || 0, startedAt: iv.startedAt,
