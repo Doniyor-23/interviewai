@@ -21,7 +21,7 @@ function nextAction(o, t) {
 }
 
 export default function Dashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { data, loading, error, reload } = useFetch(progressService.overview, []);
   if (loading) return <PageLoader />;
@@ -79,7 +79,7 @@ export default function Dashboard() {
             {data.recentInterviews.length ? (
               <ul className="mt-4 space-y-3.5">
                 {data.recentInterviews.slice(0, 4).map((i) => (
-                  <li key={i._id} className="flex items-start gap-3 text-sm"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-violet" /><span><span className="capitalize">{t(`dashboard.status.${i.status}`, i.status.replace('_', ' '))}</span> · {t(`setup.careers.${i.career}`, careerLabel(i.career))}<span className="block text-xs text-muted">{timeAgo(i.completedAt || i.createdAt)}</span></span></li>
+                  <li key={i._id} className="flex items-start gap-3 text-sm"><span className="mt-1.5 size-2 shrink-0 rounded-full bg-brand-violet" /><span><span className="capitalize">{t(`dashboard.status.${i.status}`, i.status.replace('_', ' '))}</span> · {t(`setup.careers.${i.career}`, careerLabel(i.career))}<span className="block text-xs text-muted">{timeAgo(i.completedAt || i.createdAt, i18n.language)}</span></span></li>
                 ))}
               </ul>
             ) : <p className="mt-3 text-sm text-muted">{t('dashboard.noActivity')}</p>}

@@ -9,8 +9,10 @@ import { FormAlert } from '../../components/common/ErrorNotice';
 import { authService } from '../../services/authService';
 import { useToast } from '../../context/ToastContext';
 import { clean, passwordError } from '../../utils/validators';
+import { useTranslation } from 'react-i18next';
 
 export default function ResetPassword() {
+  const { t } = useTranslation();
   const [params] = useSearchParams();
   const token = params.get('token') || '';
   const email = params.get('email') || '';
@@ -24,15 +26,15 @@ export default function ResetPassword() {
 
   if (!token || !email) {
     return (
-      <AuthLayout title="Reset link invalid" subtitle="This link is missing information. Request a new one." footer={<Link to="/login" className="font-semibold text-brand-soft hover:underline">Back to log in</Link>}>
-        <Button to="/forgot-password" className="w-full">Request a new link</Button>
+      <AuthLayout title={t('pages.auxiliary.invalidLink')} subtitle={t('pages.auxiliary.invalidLinkText')} footer={<Link to="/login" className="font-semibold text-brand-soft hover:underline">{t('pages.auxiliary.backLogin')}</Link>}>
+        <Button to="/forgot-password" className="w-full">{t('pages.auxiliary.requestLink')}</Button>
       </AuthLayout>
     );
   }
 
   const submit = async (e) => {
     e.preventDefault();
-    const errs = clean({ password: passwordError(form.password), confirmPassword: form.password === form.confirmPassword ? '' : 'Passwords do not match.' });
+    const errs = clean({ password: passwordError(form.password, t), confirmPassword: form.password === form.confirmPassword ? '' : t('pages.auxiliary.passwordMismatch') });
     setErrors(errs); setFormError('');
     if (Object.keys(errs).length) return;
     setLoading(true);
@@ -44,13 +46,13 @@ export default function ResetPassword() {
   };
 
   return (
-    <AuthLayout title="Choose a new password" subtitle={<>for <span className="text-fg">{email}</span></>}>
+    <AuthLayout title={t('pages.auxiliary.choosePassword')} subtitle={<>{t('pages.auxiliary.for')} <span className="text-fg">{email}</span></>}>
       <form onSubmit={submit} className="space-y-4" noValidate>
         <FormAlert>{formError}</FormAlert>
-        <Input label="New password" type="password" icon={Lock} autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} />
+        <Input label={t('pages.auxiliary.newPassword')} type="password" icon={Lock} autoComplete="new-password" value={form.password} onChange={set('password')} error={errors.password} />
         <PasswordStrength password={form.password} />
-        <Input label="Confirm new password" type="password" icon={Lock} autoComplete="new-password" value={form.confirmPassword} onChange={set('confirmPassword')} error={errors.confirmPassword} />
-        <Button type="submit" loading={loading} className="w-full">Update password</Button>
+        <Input label={t('pages.auxiliary.confirmPassword')} type="password" icon={Lock} autoComplete="new-password" value={form.confirmPassword} onChange={set('confirmPassword')} error={errors.confirmPassword} />
+        <Button type="submit" loading={loading} className="w-full">{t('pages.auxiliary.updatePassword')}</Button>
       </form>
     </AuthLayout>
   );

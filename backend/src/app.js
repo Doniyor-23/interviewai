@@ -9,6 +9,7 @@ import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import interviewRoutes from './routes/interviewRoutes.js';
 import progressRoutes from './routes/progressRoutes.js';
+import speechRoutes from './routes/speechRoutes.js';
 
 const app = express();
 if (env.isProd) app.set('trust proxy', 1);
@@ -42,6 +43,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/interviews', interviewRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/speech', speechRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

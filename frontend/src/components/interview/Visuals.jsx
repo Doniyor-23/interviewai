@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 const BARS = [0.35, 0.6, 0.85, 0.5, 1, 0.7, 0.4, 0.9, 0.55, 0.8, 0.45, 0.95, 0.6, 0.35, 0.75, 0.5, 0.9, 0.4, 0.65, 0.3];
 
@@ -69,7 +70,9 @@ export const STATUS_META = {
   completed: ['Interview completed', 'bg-emerald-400/12 text-emerald-300'],
 };
 export function StatusPill({ status, paused }) {
-  const [label, cls] = paused ? ['Paused', 'bg-slate-400/15 text-slate-300'] : STATUS_META[status] || ['', ''];
+  const { t } = useTranslation();
+  const [defaultLabel, cls] = paused ? ['Paused', 'bg-slate-400/15 text-slate-300'] : STATUS_META[status] || ['', ''];
+  const label = paused ? t('feedback.status.paused') : t(`feedback.status.${status}`, defaultLabel);
   if (!label) return null;
   return <span role="status" aria-live="polite" className={`inline-flex items-center gap-2 rounded-full px-3.5 py-1.5 text-sm font-semibold transition-colors ${cls}`}><span className="size-2 rounded-full bg-current" />{label}</span>;
 }

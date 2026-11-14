@@ -4,7 +4,7 @@ dotenv.config();
 export const env = {
   nodeEnv: process.env.NODE_ENV || 'development',
   isProd: process.env.NODE_ENV === 'production',
-  port: Number(process.env.PORT) || 5000,
+  port: Number(process.env.PORT) || 5005,
   mongoUri: process.env.MONGODB_URI,
   jwtSecret: process.env.JWT_SECRET,
   geminiKey: process.env.GEMINI_API_KEY,
@@ -12,6 +12,9 @@ export const env = {
   geminiBaseUrl: process.env.GEMINI_BASE_URL || '', // optional (tests / proxies)
   geminiTimeoutMs: Number(process.env.GEMINI_TIMEOUT_MS) || 30000,
   geminiRetryBaseMs: Number(process.env.GEMINI_RETRY_BASE_MS) || 700,
+  azureSpeechKey: process.env.AZURE_SPEECH_KEY || '',
+  azureSpeechRegion: process.env.AZURE_SPEECH_REGION || '',
+  azureSpeechFreeTierOnly: process.env.AZURE_SPEECH_FREE_TIER_ONLY === 'true',
   resendKey: process.env.RESEND_API_KEY,
   emailFrom: process.env.EMAIL_FROM || 'InterviewAI <onboarding@resend.dev>',
   clientUrl: (process.env.CLIENT_URL || 'http://localhost:5173').replace(/\/$/, ''),

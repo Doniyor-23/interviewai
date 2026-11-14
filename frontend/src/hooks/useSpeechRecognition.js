@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
+import { getAzureSpeechToken } from '../services/speechService';
 
 const getSR = () => (typeof window === 'undefined' ? null : window.SpeechRecognition || window.webkitSpeechRecognition || null);
 const FATAL = {
@@ -13,10 +15,11 @@ const FATAL = {
 /** Browser-native speech-to-text. The returned transcript remains editable before submission. */
 export function useSpeechRecognition(lang = 'en') {
   const SR = getSR();
-  // Uzbek is permitted only with the browser's on-device API: never silently send
-  // Uzbek interview audio to a remote speech service. Other languages retain the
-  // existing browser recognition behavior.
-  const supported = !!SR && (lang !== 'uz' || (typeof SR.available === 'function' && typeof SR.install === 'function'));
+  // Without Azure, use the browser's built-in recognizer for Uzbek too. Depending
+  // on the browser, it may use a remote speech service rather than on-device AI.
+  const browserSupported = !!SR;
+  const [azureAvailable, setAzureAvailable] = useState(false);
+  const supported = browserSupported || azureAvailable;
   const [listening, setListening] = useState(false);
   const [transcript, setTranscriptState] = useState('');
   const [interim, setInterim] = useState('');
@@ -30,6 +33,14 @@ export function useSpeechRecognition(lang = 'en') {
   const restarts = useRef(0);
   const silent = useRef(0);
   const gotAny = useRef(false);
+  const azure = useRef(null);
+
+  useEffect(() => {
+    if (lang !== 'uz') { setAzureAvailable(false); return undefined; }
+    let alive = true;
+    getAzureSpeechToken().then(() => { if (alive) setAzureAvailable(true); }).catch(() => { if (alive) setAzureAvailable(false); });
+    return () => { alive = false; };
+  }, [lang]);
 
   const setTranscript = useCallback((t) => { textRef.current = t; setTranscriptState(t); }, []);
 
@@ -39,10 +50,19 @@ export function useSpeechRecognition(lang = 'en') {
     return () => clearInterval(t);
   }, [listening]);
 
+  useEffect(() => {
+    if (!listening || !azure.current) return;
+    const timer = setInterval(() => {
+      getAzureSpeechToken().then(({ token }) => { if (azure.current) azure.current.authorizationToken = token; }).catch(() => {});
+    }, 8 * 60 * 1000);
+    return () => clearInterval(timer);
+  }, [listening]);
+
   const teardown = useCallback(() => {
     want.current = false;
     const r = rec.current; rec.current = null;
     if (r) { r.onresult = r.onerror = r.onend = null; try { r.stop(); } catch { /* ignore */ } }
+    if (azure.current) { const a = azure.current; azure.current = null; try { a.stopContinuousRecognitionAsync(() => a.close(), () => a.close()); } catch { a.close(); } }
     setListening(false); setInterim('');
   }, []);
 
@@ -51,7 +71,6 @@ export function useSpeechRecognition(lang = 'en') {
   const begin = useCallback(() => {
     const r = new SR();
     r.lang = lang === 'uz' ? 'uz-UZ' : lang === 'ru' ? 'ru-RU' : 'en-US';
-    if (lang === 'uz') r.processLocally = true;
     r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
     r.onresult = (e) => {
       let live = '';
@@ -82,35 +101,53 @@ export function useSpeechRecognition(lang = 'en') {
   }, [SR, lang, teardown, setTranscript]);
 
   const start = useCallback(async () => {
-    if (!supported) { setError(lang === 'uz' ? 'On-device Uzbek recognition is not available in this browser. Type your answer instead.' : 'Speech recognition is not supported in this browser. Use Chrome or Edge, or type your answer.'); return false; }
+    if (!supported) { setError('Speech recognition is not supported in this browser. Type your answer instead.'); return false; }
     if (want.current) return true;
-    if (lang === 'uz') {
-      try {
-        const options = { langs: ['uz-UZ'], processLocally: true, quality: 'dictation' };
-        const availability = await SR.available(options);
-        if (availability === 'unavailable') {
-          setError('On-device Uzbek speech recognition is unavailable. Type your answer instead. No Gemini transcription is used.');
-          return false;
+    // Azure is used for Uzbek only when the backend has an Azure Speech resource configured.
+    // The browser receives a short-lived token; the subscription key remains server-side.
+    if (lang === 'uz') try {
+      const { token, region } = await getAzureSpeechToken();
+      const config = SpeechSDK.SpeechConfig.fromAuthorizationToken(token, region);
+      config.speechRecognitionLanguage = lang === 'uz' ? 'uz-UZ' : lang === 'ru' ? 'ru-RU' : 'en-US';
+      const audio = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+      const recognizer = new SpeechSDK.SpeechRecognizer(config, audio);
+      azure.current = recognizer;
+      setError(''); finals.current = ''; base.current = textRef.current ? `${textRef.current.trim()} ` : '';
+      restarts.current = 0; silent.current = 0; gotAny.current = false; want.current = true;
+      recognizer.recognizing = (_s, e) => { if (e.result?.text) { gotAny.current = true; setInterim(e.result.text); } };
+      recognizer.recognized = (_s, e) => {
+        if (e.result?.reason === SpeechSDK.ResultReason.RecognizedSpeech && e.result.text) {
+          finals.current += `${e.result.text.trim()} `; gotAny.current = true; silent.current = 0;
+          setTranscript(`${base.current}${finals.current}`.replace(/\s+/g, ' ').trimStart()); setInterim('');
         }
-        if (availability !== 'available') {
-          setError('Downloading the on-device Uzbek language pack…');
-          const installed = await SR.install(options);
-          if (!installed) { setError('Could not install the on-device Uzbek language pack. Type your answer instead.'); return false; }
-        }
-      } catch {
-        setError('On-device Uzbek speech recognition is unavailable here. Type your answer instead.');
-        return false;
+      };
+      recognizer.canceled = (_s, e) => {
+        if (!want.current) return;
+        setError(e.errorDetails || 'Azure Speech stopped. Type your answer or try the microphone again.');
+        teardown();
+      };
+      recognizer.sessionStopped = () => { if (want.current) teardown(); };
+      await new Promise((resolve, reject) => recognizer.startContinuousRecognitionAsync(resolve, reject));
+      setListening(true); return true;
+    } catch (azureError) {
+      want.current = false;
+      setListening(false);
+      if (azure.current) { azure.current.close(); azure.current = null; }
+      // No Azure resource configured: retain the local-only Uzbek path and browser path for other languages.
+      if (azureError?.response?.status !== 503 && azureError?.status !== 503 && azureError?.response) {
+        setError(azureError.message || 'Azure Speech could not start. Type your answer instead.'); return false;
       }
     }
     setError(''); finals.current = ''; base.current = textRef.current ? `${textRef.current.trim()} ` : '';
     restarts.current = 0; silent.current = 0; gotAny.current = false; want.current = true;
     try { begin(); setListening(true); return true; } catch { want.current = false; setError('Could not start the microphone. Try again or type your answer.'); return false; }
-  }, [SR, supported, lang, begin]);
+  }, [SR, supported, lang, begin, setTranscript, teardown]);
 
   const stop = useCallback(() => {
     want.current = false;
     const r = rec.current; rec.current = null;
     if (r) { r.onend = null; try { r.stop(); } catch { /* ignore */ } }
+    if (azure.current) { const a = azure.current; azure.current = null; try { a.stopContinuousRecognitionAsync(() => a.close(), () => a.close()); } catch { a.close(); } }
     setListening(false); setInterim('');
   }, []);
 

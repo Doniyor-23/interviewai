@@ -1,6 +1,6 @@
-# InterviewAI — Part 1 (Foundation, Auth, UI)
+# InterviewAI
 
-React + Vite + Tailwind v4 frontend, Express + MongoDB backend. Part 2 adds Gemini-powered voice interviews, evaluation, reports and analytics.
+React + Vite + Tailwind v4 frontend, Express + MongoDB backend, with AI interview sessions, voice controls, feedback, reports, progress tracking and Uzbek, English and Russian interfaces.
 
 ## Setup
 
@@ -11,7 +11,7 @@ Requires Node.js 22+ (the installed Google Gen AI SDK v3 requirement) and a Mong
 cd backend
 cp .env.example .env        # then fill in the values below
 npm install
-npm run dev                 # http://localhost:5000
+npm run dev                 # http://localhost:5005 (default in .env.example)
 
 # 2. Frontend (second terminal)
 cd frontend
@@ -19,16 +19,19 @@ npm install
 npm run dev                 # http://localhost:5173
 ```
 
-The Vite dev server proxies `/api` to `localhost:5000`, so the HTTP-only auth cookie stays same-origin.
+The Vite dev server proxies `/api` to `localhost:5005`, so the HTTP-only auth cookie stays same-origin.
 
 ## Environment variables (`backend/.env`)
 
 | Variable | Notes |
 |---|---|
-| `PORT` | API port. Default 5000. |
+| `PORT` | API port. Default 5005. |
 | `MONGODB_URI` | Your Atlas connection string. The app always uses the `interviewai` database. In Atlas, allow your IP under Network Access. |
 | `JWT_SECRET` | Long random string (16+ chars). Generate: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"` |
 | `GEMINI_API_KEY` | Required for AI interviews, evaluation, and reports. Keep it on the backend only. |
+| `AZURE_SPEECH_KEY` | Optional. Key for an Azure Speech resource created on the **Free (F0)** tier. Keep it on the backend only. |
+| `AZURE_SPEECH_REGION` | Region of that Azure Speech resource, for example `eastus`. |
+| `AZURE_SPEECH_FREE_TIER_ONLY` | Set to `true` only after confirming the resource is F0. Otherwise Azure Speech stays disabled. |
 | `RESEND_API_KEY` | Optional in development. Empty = verification codes and reset links print in the backend terminal. **Required** when `NODE_ENV=production`. |
 | `EMAIL_FROM` | e.g. `InterviewAI <noreply@yourdomain.com>`. Defaults to Resend's test sender, which only delivers to your own Resend account email until you verify a domain. |
 | `CLIENT_URL` | Frontend origin for CORS and reset links. Default `http://localhost:5173`. |
@@ -55,7 +58,7 @@ Interview state is derived from what is saved in MongoDB (`interviewEngine.js`),
 Every answer is saved *before* the AI call and its evaluation right after; a failed evaluation can simply be retried.
 Scores are computed from saved evaluations (stage = mean of its answers, overall = mean of all answers); Gemini only writes the text.
 
-**Frontend voice** uses browser speech synthesis only when the device provides a voice matching the selected interview language. Uzbek recognition is on-device only when the browser exposes local recognition and has (or can install) an Uzbek language pack; otherwise, users can type. English and Russian use the browser's Web Speech recognition where available, and some browsers may process that audio through their own remote service. The app sends no recorded interview audio to Gemini or another transcription API.
+**Azure Speech (optional):** in Azure Portal, create an Azure AI Speech resource and select the **Free (F0)** pricing tier and a supported region. From that resource's Keys and Endpoint page, copy a key and the region into `backend/.env` as `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION`, then set `AZURE_SPEECH_FREE_TIER_ONLY=true` and restart the backend. Never put the key in the frontend or commit it. The flag is a manual enable switch; the application cannot verify the resource's pricing tier, so confirm F0 in Azure before enabling. The backend issues short-lived Speech tokens; the subscription key stays server-side. When configured, Uzbek interview audio is sent directly from the browser to Microsoft Speech for transcription, and Uzbek questions use the `uz-UZ-MadinaNeural` voice. F0 currently includes 5 hours/month of real-time Speech-to-Text and 500,000 Neural TTS characters/month. Keep the resource on F0. **No Azure account is required:** without Azure, Uzbek speech input uses the browser's built-in recognition if available; Chrome may send audio to Google's speech service. Browser availability and Uzbek voice quality vary, and an Uzbek system voice must be installed for spoken questions. Typing remains available. English and Russian also use browser speech recognition and matching system voices. Interview audio is not sent to Gemini by this application.
 
 ### Gemini model configuration
 Model names change often. By default the server tries `gemini-flash-latest`, `gemini-3.5-flash`, `gemini-3-flash-preview`, `gemini-2.5-flash`,

@@ -64,7 +64,7 @@ export default function WebcamPreview({ webcam, className = '' }) {
               onClick={toggleVisible}
               className="rounded-lg p-1 text-muted hover:bg-ink-800 hover:text-fg"
               title={visible ? t('interview.hidePreview', 'Hide Preview') : t('interview.showPreview', 'Show Preview')}
-              aria-label={visible ? 'Hide camera preview' : 'Show camera preview'}
+              aria-label={visible ? t('cameraUI.hide') : t('cameraUI.show')}
             >
               {visible ? <EyeOff size={14} /> : <Eye size={14} />}
             </button>

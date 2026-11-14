@@ -1,11 +1,13 @@
 import { AlertCircle } from 'lucide-react';
 import Button from './Button';
+import { useTranslation } from 'react-i18next';
 export default function ErrorNotice({ error, onRetry }) {
+  const { t } = useTranslation();
   return (
     <div className="surface flex flex-col items-center gap-3 p-8 text-center" role="alert">
       <AlertCircle className="text-red-300" />
       <p className="text-sm text-muted">{error?.message || 'Something went wrong.'}</p>
-      {onRetry && <Button variant="secondary" size="sm" onClick={onRetry}>Try again</Button>}
+      {onRetry && <Button variant="secondary" size="sm" onClick={onRetry}>{t('common.retry')}</Button>}
     </div>
   );
 }

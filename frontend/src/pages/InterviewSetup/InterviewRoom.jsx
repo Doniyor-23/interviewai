@@ -86,13 +86,14 @@ export default function InterviewRoom() {
     clearTimeout(speakTimer.current);
     if (!speechOn || !synth.supported) { setUi('waiting'); return; }
     if (!synth.hasVoiceForLang) {
-      setVoiceNotice(lang === 'uz' ? 'Bu qurilmada o‘zbekcha ovoz topilmadi. Savol matn ko‘rinishida berildi.' : lang === 'ru' ? 'На устройстве не найден русский голос. Вопрос показан текстом.' : 'No English voice is available on this device. The question is shown as text.');
+      const voiceLanguage = t(`voiceUI.${lang === 'uz' ? 'uzbek' : lang === 'ru' ? 'russian' : 'english'}`);
+      setVoiceNotice(t('interview.voiceUnavailable', { language: voiceLanguage }));
       setUi('waiting');
       return;
     }
     setVoiceNotice('');
     setUi('speaking');
-    const done = () => { clearTimeout(speakTimer.current); setUi((u) => (u === 'speaking' ? 'waiting' : u)); };
+    const done = (reason) => { clearTimeout(speakTimer.current); if (reason === 'error' && lang === 'uz') setVoiceNotice(t('voiceUI.noVoice', { language: t('voiceUI.uzbek') })); setUi((u) => (u === 'speaking' ? 'waiting' : u)); };
     synth.speak(text, { onEnd: done });
     // Safety net: some browsers never fire `end` when a voice is missing.
     speakTimer.current = setTimeout(() => { synth.cancel(); done(); }, 8000 + text.length * 120);
@@ -171,7 +172,7 @@ export default function InterviewRoom() {
     setUi('waiting');
     if (await rec.start()) setUi('listening'); else setUi('waiting');
   };
-  const pause = () => { setPaused(true); if (synth.speaking) synth.pause(); if (rec.listening) { rec.stop(); setUi('waiting'); } };
+  const pause = () => { setPaused(true); if (synth.speaking) { if (synth.azureReady) stopSpeech(); else synth.pause(); } if (rec.listening) { rec.stop(); setUi('waiting'); } };
   const resume = () => { setPaused(false); if (synth.paused) synth.resume(); };
   const openReview = async () => {
     try { const r = await interviewService.get(state.interviewId); const s = state.stage.key; setReview(r.interview.questions.filter((q) => q.stage === s).map((q) => ({ q, a: r.interview.answers.find((a) => String(a.questionId) === String(q._id)) }))); } catch (e) { toast.error(e.message); }
@@ -198,7 +199,7 @@ export default function InterviewRoom() {
         <div className="mx-auto grid max-w-4xl items-start gap-6 py-8 lg:grid-cols-[1.3fr_1fr]">
           <div className="space-y-5">
             <div><h1 className="text-3xl font-semibold">{resumeable ? t('room.resumeTitle') : t('room.readyTitle')}</h1>
-              <p className="mt-2 text-muted">{resumeable ? t('room.resumeProgress', { question: state.progress.questionNumber, stage: state.stage.name }) : t('room.intro')}</p></div>
+              <p className="mt-2 text-muted">{resumeable ? t('room.resumeProgress', { question: state.progress.questionNumber, stage: t(`feedback.stages.${state.stage.key}`, state.stage.name) }) : t('room.intro')}</p></div>
             {conflictId && (
               <div className="surface border-amber-400/40 p-5"><p className="font-semibold">{t('room.conflictTitle')}</p>
                 <p className="mt-1 text-sm text-muted">{t('room.conflictText')}</p>
@@ -228,23 +229,23 @@ export default function InterviewRoom() {
     <Shell
       header={
         <div className="flex flex-1 items-center justify-between gap-3">
-          <div className="min-w-0"><p className="truncate text-sm font-semibold">{state.stage.name}</p><p className="text-xs text-muted">Question {p.questionNumber} of about {Math.max(p.planned, p.questionNumber)} · {state.config.language.toUpperCase()}</p></div>
+              <div className="min-w-0"><p className="truncate text-sm font-semibold">{t(`feedback.stages.${state.stage.key}`, state.stage.name)}</p><p className="text-xs text-muted">{t('roomUI.questionOf', { question: p.questionNumber, total: Math.max(p.planned, p.questionNumber) })} · {state.config.language.toUpperCase()}</p></div>
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <span className={`rounded-lg bg-ink-700 px-2.5 py-1.5 font-display text-sm tabular-nums ${over ? 'text-amber-300' : ''}`} title={over ? 'Over the planned time' : 'Elapsed time'}>{mmss(elapsed)}<span className="text-muted"> / {state.config.durationMinutes}:00</span></span>
-            <Button variant="secondary" size="sm" icon={Settings2} onClick={() => setShowVoice((v) => !v)} aria-label="Voice settings"><span className="hidden sm:inline">Voice</span></Button>
-            <Button variant="secondary" size="sm" icon={Pause} onClick={pause} disabled={!['speaking', 'waiting', 'listening', 'review'].includes(ui)}><span className="hidden sm:inline">Pause</span></Button>
-            <Button variant="outlineDanger" size="sm" icon={X} onClick={() => setShowEnd(true)} disabled={ui === 'completing'}><span className="hidden sm:inline">End</span></Button>
+            <span className={`rounded-lg bg-ink-700 px-2.5 py-1.5 font-display text-sm tabular-nums ${over ? 'text-amber-300' : ''}`} title={over ? t('roomUI.over') : t('roomUI.elapsed')}>{mmss(elapsed)}<span className="text-muted"> / {state.config.durationMinutes}:00</span></span>
+            <Button variant="secondary" size="sm" icon={Settings2} onClick={() => setShowVoice((v) => !v)} aria-label={t('roomUI.voiceSettings')}><span className="hidden sm:inline">{t('roomUI.voice')}</span></Button>
+            <Button variant="secondary" size="sm" icon={Pause} onClick={pause} disabled={!['speaking', 'waiting', 'listening', 'review'].includes(ui)}><span className="hidden sm:inline">{t('roomUI.pause')}</span></Button>
+            <Button variant="outlineDanger" size="sm" icon={X} onClick={() => setShowEnd(true)} disabled={ui === 'completing'}><span className="hidden sm:inline">{t('roomUI.end')}</span></Button>
           </div>
         </div>
       }
     >
       <div className="mx-auto grid max-w-6xl items-start gap-5 py-6 lg:grid-cols-[minmax(0,1fr)_280px]">
        <div className="min-w-0 space-y-5">
-        <ol className="flex items-center gap-2" aria-label="Interview stages">
+        <ol className="flex items-center gap-2" aria-label={t('roomUI.stages')}>
           {p.stages.map((s, i) => (
-            <li key={s.key} className="flex-1" title={s.name}>
+            <li key={s.key} className="flex-1" title={t(`feedback.stages.${s.key}`, s.name)}>
               <div className={`h-1.5 rounded-full transition-colors duration-500 ${s.done ? 'bg-emerald-400' : i === state.stage.index ? 'bg-brand-violet' : 'bg-ink-600'}`} />
-              <p className={`mt-1.5 hidden truncate text-[11px] sm:block ${i === state.stage.index ? 'text-fg' : 'text-muted'}`}>{s.name}</p>
+              <p className={`mt-1.5 hidden truncate text-[11px] sm:block ${i === state.stage.index ? 'text-fg' : 'text-muted'}`}>{t(`feedback.stages.${s.key}`, s.name)}</p>
             </li>
           ))}
         </ol>
@@ -254,9 +255,9 @@ export default function InterviewRoom() {
         {ui === 'stage_feedback' ? (
           <StageFeedback fb={state.stageFeedback} stage={state.stage} isLast={state.isLastStage} busy={busy} error={err} onReview={openReview} onContinue={() => (state.isLastStage ? finish(false) : advance())} />
         ) : ui === 'error' ? (
-          <div className="surface p-8 text-center" role="alert"><AlertCircle className="mx-auto text-red-300" /><p className="mt-3 font-semibold">Something went wrong</p><p className="mt-1 text-sm text-muted">{err}</p>
-            <p className="mt-1 text-xs text-muted">Your progress is saved.</p>
-            <div className="mt-5 flex justify-center gap-2"><Button onClick={() => retry.current?.()}>Try again</Button><Button variant="ghost" onClick={() => navigate('/dashboard')}>Leave for now</Button></div></div>
+          <div className="surface p-8 text-center" role="alert"><AlertCircle className="mx-auto text-red-300" /><p className="mt-3 font-semibold">{t('roomUI.errorTitle')}</p><p className="mt-1 text-sm text-muted">{err}</p>
+            <p className="mt-1 text-xs text-muted">{t('roomUI.saved')}</p>
+            <div className="mt-5 flex justify-center gap-2"><Button onClick={() => retry.current?.()}>{t('roomUI.tryAgain')}</Button><Button variant="ghost" onClick={() => navigate('/dashboard')}>{t('roomUI.leave')}</Button></div></div>
         ) : (
           <>
             <section className="surface flex flex-col items-center px-5 py-7 text-center sm:px-8">
@@ -265,17 +266,18 @@ export default function InterviewRoom() {
               <div className="mt-4 w-full max-w-sm"><Waveform active={speaking && !paused} /></div>
               {!['preparing', 'preparing_next', 'stage_loading', 'completing'].includes(ui) && state.question && (
                 <div className="mt-5 max-w-2xl">
-                  {state.question.isFollowUp && <p className="mb-2 text-xs font-semibold text-brand-soft">Follow-up question</p>}
+                  {state.question.isFollowUp && <p className="mb-2 text-xs font-semibold text-brand-soft">{t('roomUI.followUp')}</p>}
                   <p className="font-display text-xl leading-snug sm:text-2xl" aria-live="polite">{state.question.text}</p>
+                  {voiceNotice && <p role="status" className="mt-3 text-sm text-amber-300">{voiceNotice}</p>}
                 </div>
               )}
-              {['preparing', 'preparing_next', 'stage_loading', 'completing'].includes(ui) && <p className="mt-5 text-muted">{ui === 'completing' ? 'Analysing your whole interview and writing your report. This can take up to a minute.' : ui === 'stage_loading' ? 'Reviewing this stage and preparing your feedback…' : 'The interviewer is thinking of the next question…'}</p>}
+              {['preparing', 'preparing_next', 'stage_loading', 'completing'].includes(ui) && <p className="mt-5 text-muted">{ui === 'completing' ? t('roomUI.analysing') : ui === 'stage_loading' ? t('roomUI.reviewing') : t('roomUI.thinking')}</p>}
               {inAnswer && (
                 <div className="mt-5 flex flex-wrap justify-center gap-2">
-                  <Button variant="secondary" size="sm" icon={RotateCcw} onClick={repeat} disabled={!synth.supported}>Repeat question</Button>
-                  {speaking && !synth.paused && <Button variant="secondary" size="sm" icon={Pause} onClick={synth.pause}>Pause speech</Button>}
-                  {synth.paused && <Button variant="secondary" size="sm" icon={Play} onClick={synth.resume}>Resume speech</Button>}
-                  {speaking && <Button variant="secondary" size="sm" icon={Square} onClick={stopSpeech}>Stop speech</Button>}
+                  <Button variant="secondary" size="sm" icon={RotateCcw} onClick={repeat} disabled={!synth.supported}>{t('roomUI.repeat')}</Button>
+                  {speaking && !synth.paused && !synth.azureReady && <Button variant="secondary" size="sm" icon={Pause} onClick={synth.pause}>{t('roomUI.pauseSpeech')}</Button>}
+                  {synth.paused && <Button variant="secondary" size="sm" icon={Play} onClick={synth.resume}>{t('roomUI.resumeSpeech')}</Button>}
+                  {speaking && <Button variant="secondary" size="sm" icon={Square} onClick={stopSpeech}>{t('roomUI.stopSpeech')}</Button>}
                 </div>
               )}
             </section>
@@ -285,33 +287,33 @@ export default function InterviewRoom() {
                 <div className="flex flex-col items-center gap-3">
                   {rec.supported ? (
                     <>
-                      <button type="button" onClick={toggleMic} aria-pressed={rec.listening} aria-label={rec.listening ? 'Stop speaking' : 'Start speaking'}
+                      <button type="button" onClick={toggleMic} aria-pressed={rec.listening} aria-label={rec.listening ? t('roomUI.stopSpeech') : t('roomUI.speakAnswer')}
                         className={`relative grid size-20 place-items-center rounded-full text-white transition-transform active:scale-95 ${rec.listening ? 'bg-emerald-500' : 'bg-brand-violet hover:bg-[#6d4cf0]'}`}>
                         {rec.listening && <><span className="ring-pulse absolute inset-0 rounded-full bg-emerald-400/50" /><span className="ring-pulse absolute inset-0 rounded-full bg-emerald-400/30 [animation-delay:600ms]" /></>}
                         {rec.listening ? <Square size={26} className="relative" /> : <Mic size={30} className="relative" />}
                       </button>
-                      <p className="text-sm text-muted">{rec.listening ? <span className="text-emerald-300">Listening… <span className="font-display tabular-nums">{mmss(rec.seconds)}</span> · press to stop</span> : rec.transcript ? 'Press the microphone to keep adding to your answer' : 'Press the microphone and speak your answer'}</p>
+                      <p className="text-sm text-muted">{rec.listening ? <span className="text-emerald-300">{t('roomUI.listening')} <span className="font-display tabular-nums">{mmss(rec.seconds)}</span> · {t('roomUI.pressStop')}</span> : rec.transcript ? t('roomUI.addAnswer') : t('roomUI.speakAnswer')}</p>
                       <div className="w-full max-w-sm"><Waveform active={rec.listening} tone="user" height={36} /></div>
                     </>
                   ) : (
-                    <div className="flex items-center gap-2 text-sm text-amber-300"><MicOff size={16} />{lang === 'uz' ? t('interview.speechUzFallback') : lang === 'ru' ? 'Распознавание речи недоступно. Введите ответ текстом.' : 'Voice input is not supported in this browser. Type your answer below.'}</div>
+                    <div className="flex items-center gap-2 text-sm text-amber-300"><MicOff size={16} />{lang === 'uz' ? t('interview.speechUzFallback') : t('roomUI.micUnsupported')}</div>
                   )}
                 </div>
                 {rec.error && <div className="mt-4"><FormAlert>{rec.error}</FormAlert></div>}
-                <label htmlFor="answer" className="mb-1.5 mt-5 flex items-center gap-2 text-sm font-medium"><Keyboard size={15} className="text-muted" />Your answer <span className="font-normal text-muted">(you can edit before submitting)</span></label>
+                <label htmlFor="answer" className="mb-1.5 mt-5 flex items-center gap-2 text-sm font-medium"><Keyboard size={15} className="text-muted" />{t('roomUI.answer')} <span className="font-normal text-muted">{t('roomUI.edit')}</span></label>
                 <textarea id="answer" rows={5} value={rec.transcript} readOnly={rec.listening} maxLength={4000} onChange={(e) => rec.setTranscript(e.target.value)}
-                  placeholder="Your recognised speech appears here. You can also just type."
+                  placeholder={t('roomUI.placeholder')}
                   className="w-full resize-y rounded-xl border border-line bg-ink-900/70 p-3.5 text-sm leading-relaxed focus:border-brand-violet focus:outline-none focus:ring-2 focus:ring-brand-violet/30" />
                 {rec.listening && rec.interim && <p className="mt-1.5 text-sm italic text-muted" aria-live="polite">{rec.interim}</p>}
                 {err && <p role="alert" className="mt-3 text-sm text-red-300">{err}</p>}
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                  <button type="button" onClick={() => { rec.reset(); setErr(''); }} disabled={!rec.transcript || rec.listening} className="text-sm text-muted hover:text-fg disabled:opacity-40">Clear</button>
-                  <Button onClick={submit} icon={Send} disabled={rec.transcript.trim().length < 2}>Submit answer</Button>
+                  <button type="button" onClick={() => { rec.reset(); setErr(''); }} disabled={!rec.transcript || rec.listening} className="text-sm text-muted hover:text-fg disabled:opacity-40">{t('roomUI.clear')}</button>
+                  <Button onClick={submit} icon={Send} disabled={rec.transcript.trim().length < 2}>{t('roomUI.submit')}</Button>
                 </div>
               </section>
             )}
 
-            {ui === 'processing' && <div className="surface rise p-6 text-center"><p className="font-semibold">Processing your answer</p><p className="mt-1 text-sm text-muted">Analysing it and generating feedback. This usually takes a few seconds.</p></div>}
+            {ui === 'processing' && <div className="surface rise p-6 text-center"><p className="font-semibold">{t('roomUI.processing')}</p><p className="mt-1 text-sm text-muted">{t('roomUI.processingText')}</p></div>}
             {ui === 'review' && state.answer && <AnswerFeedback answer={state.answer} stageEnding={state.stageEnding} busy={false} error={err} onContinue={() => advance()} />}
           </>
         )}
@@ -320,17 +322,17 @@ export default function InterviewRoom() {
       </div>
 
       {paused && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/90 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Interview paused">
-          <div className="surface rise max-w-sm p-8 text-center"><Pause className="mx-auto text-brand-soft" size={30} /><h2 className="mt-3 text-2xl font-semibold">Interview paused</h2><p className="mt-2 text-sm text-muted">The timer is stopped. Your progress is saved.</p><Button className="mt-6 w-full" icon={Play} onClick={resume}>Resume interview</Button></div>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink-950/90 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={t('roomUI.paused')}>
+          <div className="surface rise max-w-sm p-8 text-center"><Pause className="mx-auto text-brand-soft" size={30} /><h2 className="mt-3 text-2xl font-semibold">{t('roomUI.paused')}</h2><p className="mt-2 text-sm text-muted">{t('roomUI.timerStopped')}</p><Button className="mt-6 w-full" icon={Play} onClick={resume}>{t('roomUI.resumeInterview')}</Button></div>
         </div>
       )}
-      <Modal open={showEnd} onClose={() => setShowEnd(false)} title="End this interview?">
-        <p className="text-sm text-muted">{p.answered > 0 ? `We will build your report from the ${p.answered} answer${p.answered === 1 ? '' : 's'} you have given so far.` : 'You have not answered anything yet, so nothing will be saved to your results.'}</p>
-        <div className="mt-6 flex justify-end gap-2"><Button variant="ghost" onClick={() => setShowEnd(false)}>Keep going</Button><Button variant="danger" onClick={() => finish(true)}>End interview</Button></div>
+      <Modal open={showEnd} onClose={() => setShowEnd(false)} title={t('roomUI.endTitle')}>
+        <p className="text-sm text-muted">{p.answered > 0 ? t('roomUI.endCount', { count: p.answered }) : t('roomUI.endNone')}</p>
+        <div className="mt-6 flex justify-end gap-2"><Button variant="ghost" onClick={() => setShowEnd(false)}>{t('roomUI.keepGoing')}</Button><Button variant="danger" onClick={() => finish(true)}>{t('roomUI.endInterview')}</Button></div>
       </Modal>
-      <Modal open={!!review} onClose={() => setReview(null)} title="Your answers in this stage">
+      <Modal open={!!review} onClose={() => setReview(null)} title={t('roomUI.stageAnswers')}>
         <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
-          {review?.map(({ q, a }) => (<div key={q._id} className="rounded-xl bg-ink-900/60 p-4"><p className="text-sm font-semibold">{q.text}</p><p className="mt-2 text-sm text-muted">{a?.transcript || 'No answer'}</p>{a?.score != null && <p className="mt-2 text-xs text-brand-soft">Score {a.score}/100</p>}</div>))}
+          {review?.map(({ q, a }) => (<div key={q._id} className="rounded-xl bg-ink-900/60 p-4"><p className="text-sm font-semibold">{q.text}</p><p className="mt-2 text-sm text-muted">{a?.transcript || t('roomUI.noAnswer')}</p>{a?.score != null && <p className="mt-2 text-xs text-brand-soft">{t('roomUI.score')} {a.score}/100</p>}</div>))}
         </div>
       </Modal>
     </Shell>

@@ -22,8 +22,8 @@ export default function Register() {
   const submit = async (e) => {
     e.preventDefault();
     const errs = clean({
-      firstName: required(form.firstName, t('auth.firstName')), lastName: required(form.lastName, t('auth.lastName')),
-      email: isEmail(form.email) ? '' : t('auth.invalidEmail'), password: passwordError(form.password),
+      firstName: required(form.firstName, t('auth.firstName'), t), lastName: required(form.lastName, t('auth.lastName'), t),
+      email: isEmail(form.email) ? '' : t('auth.invalidEmail'), password: passwordError(form.password, t),
       confirmPassword: form.password === form.confirmPassword ? '' : t('auth.passwordMismatch'),
     });
     setErrors(errs); setFormError('');

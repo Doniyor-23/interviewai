@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
+import { getAzureSpeechToken } from '../services/speechService';
 
 const supportedNow = () => typeof window !== 'undefined' && 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;
 const prefix = (lang) => (lang === 'uz' ? 'uz' : lang === 'ru' ? 'ru' : 'en');
@@ -23,7 +25,16 @@ export function useSpeechSynthesis(lang = 'en') {
   const [voices, setVoices] = useState([]);
   const [voiceURI, setVoiceURIState] = useState(() => { try { return localStorage.getItem(key(lang)) || ''; } catch { return ''; } });
   const [state, setState] = useState('idle'); // idle | speaking | paused
+  const [azureReady, setAzureReady] = useState(false);
   const token = useRef(0);
+  const azureSynth = useRef(null);
+
+  useEffect(() => {
+    if (lang !== 'uz') return;
+    let alive = true;
+    getAzureSpeechToken().then(() => { if (alive) setAzureReady(true); }).catch(() => { if (alive) setAzureReady(false); });
+    return () => { alive = false; };
+  }, [lang]);
 
   useEffect(() => {
     if (!supported) return;
@@ -47,11 +58,33 @@ export function useSpeechSynthesis(lang = 'en') {
 
   const setVoiceURI = useCallback((uri) => { setVoiceURIState(uri); try { localStorage.setItem(key(lang), uri); } catch { /* ignore */ } }, [lang]);
 
-  const cancel = useCallback(() => { token.current++; if (supportedNow()) window.speechSynthesis.cancel(); setState('idle'); }, []);
+  const cancel = useCallback(() => { token.current++; if (supportedNow()) window.speechSynthesis.cancel(); if (azureSynth.current) { azureSynth.current.close(); azureSynth.current = null; } setState('idle'); }, []);
 
   /** onEnd(reason): 'ended' | 'stopped' | 'error' */
   const speak = useCallback((text, { onEnd } = {}) => {
-    if (!supportedNow() || !text) { onEnd?.('error'); return; }
+    if ((!supportedNow() && !(lang === 'uz' && azureReady)) || !text) { onEnd?.('error'); return; }
+    if (lang === 'uz' && azureReady) {
+      cancel();
+      const my = ++token.current;
+      setState('speaking');
+      getAzureSpeechToken().then(({ token: authToken, region }) => {
+        if (my !== token.current) return;
+        const config = SpeechSDK.SpeechConfig.fromAuthorizationToken(authToken, region);
+        config.speechSynthesisVoiceName = 'uz-UZ-MadinaNeural';
+        const synth = new SpeechSDK.SpeechSynthesizer(config, SpeechSDK.AudioConfig.fromDefaultSpeakerOutput());
+        azureSynth.current = synth;
+        synth.speakTextAsync(text, () => {
+          if (my !== token.current) return;
+          synth.close(); azureSynth.current = null; setState('idle'); onEnd?.('ended');
+        }, (err) => {
+          if (my !== token.current) return;
+          synth.close(); azureSynth.current = null; setState('idle'); onEnd?.('error');
+          console.warn('Azure Speech synthesis failed:', err);
+        });
+      }).catch((err) => { if (my === token.current) { setState('idle'); onEnd?.('error'); console.warn('Azure Speech token unavailable:', err); } });
+      return;
+    }
+    if (!supportedNow()) { onEnd?.('error'); return; }
     const synth = window.speechSynthesis;
     synth.cancel();
     const my = ++token.current;
@@ -70,11 +103,11 @@ export function useSpeechSynthesis(lang = 'en') {
     };
     setState('speaking');
     next();
-  }, [voice, lang]);
+  }, [voice, lang, azureReady, cancel]);
 
   const stop = useCallback((onEnd) => { cancel(); onEnd?.('stopped'); }, [cancel]);
   const pause = useCallback(() => { if (supportedNow() && state === 'speaking') { window.speechSynthesis.pause(); setState('paused'); } }, [state]);
   const resume = useCallback(() => { if (supportedNow() && state === 'paused') { window.speechSynthesis.resume(); setState('speaking'); } }, [state]);
 
-  return { supported, voices, matching, voice, hasVoiceForLang: matching.length > 0, voiceURI: voice?.voiceURI || '', setVoiceURI, state, speaking: state === 'speaking', paused: state === 'paused', speak, stop, cancel, pause, resume };
+  return { supported: supported || (lang === 'uz' && azureReady), voices, matching, voice, hasVoiceForLang: matching.length > 0 || (lang === 'uz' && azureReady), azureReady, voiceURI: voice?.voiceURI || '', setVoiceURI, state, speaking: state === 'speaking', paused: state === 'paused', speak, stop, cancel, pause, resume };
 }
