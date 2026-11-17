@@ -26,24 +26,26 @@ const fresh = async (iv) => engine.deriveState(await Interview.findById(iv._id))
 
 /* ---------- POST /start ---------- */
 export const start = asyncHandler(async (req, res) => {
-  const b = req.body;
-  const active = await Interview.findOne({ userId: req.user._id, status: 'in_progress' }).select('_id career createdAt');
-  if (active && !b.abandonActive) throw new ApiError(409, 'You already have an interview in progress.', { code: 'ACTIVE_INTERVIEW', activeId: String(active._id) });
-  const cfg = { career: b.career, experienceLevel: b.experienceLevel, difficulty: b.difficulty, language: b.language, interviewType: b.interviewType };
-  const durationMinutes = Number(b.durationMinutes);
-  const stagePlan = engine.planStages({ interviewType: cfg.interviewType, durationMinutes });
+  await withLock(`user-start:${req.user._id}`, async () => {
+    const b = req.body;
+    const active = await Interview.findOne({ userId: req.user._id, status: 'in_progress' }).select('_id career createdAt');
+    if (active && !b.abandonActive) throw new ApiError(409, 'You already have an interview in progress.', { code: 'ACTIVE_INTERVIEW', activeId: String(active._id) });
+    const cfg = { career: b.career, experienceLevel: b.experienceLevel, difficulty: b.difficulty, language: b.language, interviewType: b.interviewType };
+    const durationMinutes = Number(b.durationMinutes);
+    const stagePlan = engine.planStages({ interviewType: cfg.interviewType, durationMinutes });
 
-  // Generate the first question BEFORE creating anything, so an AI failure leaves no half-created interview.
-  const q = await ai.generateQuestion({ config: cfg, stage: stagePlan[0], history: [], askedQuestions: [], mode: 'main' });
-  if (active) await Interview.updateOne({ _id: active._id, userId: req.user._id }, { status: 'abandoned', completedAt: new Date() });
-  const iv = await Interview.create({
-    ...cfg, userId: req.user._id, durationMinutes, status: 'in_progress', startedAt: new Date(), stagePlan, currentStageIndex: 0,
-    cameraEnabled: b.cameraEnabled === true,
-    questions: [{ order: 1, stage: stagePlan[0].key, text: q.text, category: q.topic }],
+    // Generate the first question BEFORE creating anything, so an AI failure leaves no half-created interview.
+    const q = await ai.generateQuestion({ config: cfg, stage: stagePlan[0], history: [], askedQuestions: [], mode: 'main' });
+    if (active) await Interview.updateOne({ _id: active._id, userId: req.user._id }, { status: 'abandoned', completedAt: new Date() });
+    const iv = await Interview.create({
+      ...cfg, userId: req.user._id, durationMinutes, status: 'in_progress', startedAt: new Date(), stagePlan, currentStageIndex: 0,
+      cameraEnabled: b.cameraEnabled === true,
+      questions: [{ order: 1, stage: stagePlan[0].key, text: q.text, category: q.topic }],
+    });
+    iv.currentQuestionId = iv.questions[0]._id;
+    await iv.save();
+    res.status(201).json({ success: true, state: engine.deriveState(iv) });
   });
-  iv.currentQuestionId = iv.questions[0]._id;
-  await iv.save();
-  res.status(201).json({ success: true, state: engine.deriveState(iv) });
 });
 
 /* ---------- POST /:id/answer ---------- */

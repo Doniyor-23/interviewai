@@ -38,7 +38,7 @@ export function useSpeechRecognition(lang = 'en') {
   useEffect(() => {
     if (lang !== 'uz') { setAzureAvailable(false); return undefined; }
     let alive = true;
-    getAzureSpeechToken().then(() => { if (alive) setAzureAvailable(true); }).catch(() => { if (alive) setAzureAvailable(false); });
+    getAzureSpeechToken().then((res) => { if (alive) setAzureAvailable(Boolean(res?.configured && res?.token)); }).catch(() => { if (alive) setAzureAvailable(false); });
     return () => { alive = false; };
   }, [lang]);
 
@@ -105,8 +105,10 @@ export function useSpeechRecognition(lang = 'en') {
     if (want.current) return true;
     // Azure is used for Uzbek only when the backend has an Azure Speech resource configured.
     // The browser receives a short-lived token; the subscription key remains server-side.
-    if (lang === 'uz') try {
-      const { token, region } = await getAzureSpeechToken();
+    if (lang === 'uz' && azureAvailable) try {
+      const res = await getAzureSpeechToken();
+      if (!res?.configured || !res?.token) throw new Error('Azure Speech not configured');
+      const { token, region } = res;
       const config = SpeechSDK.SpeechConfig.fromAuthorizationToken(token, region);
       config.speechRecognitionLanguage = lang === 'uz' ? 'uz-UZ' : lang === 'ru' ? 'ru-RU' : 'en-US';
       const audio = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();

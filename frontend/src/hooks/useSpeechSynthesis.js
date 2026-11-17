@@ -32,7 +32,7 @@ export function useSpeechSynthesis(lang = 'en') {
   useEffect(() => {
     if (lang !== 'uz') return;
     let alive = true;
-    getAzureSpeechToken().then(() => { if (alive) setAzureReady(true); }).catch(() => { if (alive) setAzureReady(false); });
+    getAzureSpeechToken().then((res) => { if (alive) setAzureReady(Boolean(res?.configured && res?.token)); }).catch(() => { if (alive) setAzureReady(false); });
     return () => { alive = false; };
   }, [lang]);
 
@@ -67,7 +67,14 @@ export function useSpeechSynthesis(lang = 'en') {
       cancel();
       const my = ++token.current;
       setState('speaking');
-      getAzureSpeechToken().then(({ token: authToken, region }) => {
+      getAzureSpeechToken().then((res) => {
+        if (my !== token.current) return;
+        if (!res?.configured || !res?.token) {
+          setState('idle');
+          onEnd?.('error');
+          return;
+        }
+        const { token: authToken, region } = res;
         if (my !== token.current) return;
         const config = SpeechSDK.SpeechConfig.fromAuthorizationToken(authToken, region);
         config.speechSynthesisVoiceName = 'uz-UZ-MadinaNeural';

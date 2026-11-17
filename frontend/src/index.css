@@ -55,3 +55,70 @@
 @keyframes dots { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
 .dot-anim { animation: dots 1.2s infinite; }
 @media (prefers-reduced-motion: reduce) { .ring-pulse, .breathe, .dot-anim { animation: none; } }
+
+/* Premium AI Avatar & Interview Room Animations */
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spinSlow 8s linear infinite;
+}
+
+@keyframes spinFast {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-fast {
+  animation: spinFast 2.5s linear infinite;
+}
+
+@keyframes avatarAura {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.05);
+  }
+}
+.avatar-aura {
+  animation: avatarAura 3.5s ease-in-out infinite;
+}
+
+@keyframes avatarSpeakPulse {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(124, 92, 255, 0.4), inset 0 0 15px rgba(59, 130, 246, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 45px rgba(124, 92, 255, 0.75), inset 0 0 25px rgba(59, 130, 246, 0.5);
+  }
+}
+.avatar-speak-pulse {
+  animation: avatarSpeakPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes equalizerBar {
+  0%, 100% { height: 18%; }
+  50% { height: 95%; }
+}
+.equalizer-bar-1 { animation: equalizerBar 0.7s ease-in-out infinite 0.1s; }
+.equalizer-bar-2 { animation: equalizerBar 0.9s ease-in-out infinite 0.25s; }
+.equalizer-bar-3 { animation: equalizerBar 0.6s ease-in-out infinite 0.15s; }
+.equalizer-bar-4 { animation: equalizerBar 0.8s ease-in-out infinite 0.35s; }
+.equalizer-bar-5 { animation: equalizerBar 0.75s ease-in-out infinite 0.05s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spin-slow,
+  .animate-spin-fast,
+  .avatar-aura,
+  .avatar-speak-pulse,
+  .equalizer-bar-1,
+  .equalizer-bar-2,
+  .equalizer-bar-3,
+  .equalizer-bar-4,
+  .equalizer-bar-5 {
+    animation: none !important;
+  }
+}
